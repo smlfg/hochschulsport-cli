@@ -10,6 +10,7 @@ from hochschulsport_cli.parser import (
     parse_course_rows,
     parse_search_data,
     parse_sports,
+    sport_filename,
 )
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
@@ -17,6 +18,10 @@ FIXTURES = Path(__file__).resolve().parent / "fixtures"
 
 def _read(name: str) -> str:
     return (FIXTURES / name).read_bytes().decode("latin-1")
+
+
+def test_sp_link_umlaut():
+    assert sport_filename("Yoga für alle") == "_Yoga_fuer_alle.html"
 
 
 def test_parse_sports_stuttgart_count():

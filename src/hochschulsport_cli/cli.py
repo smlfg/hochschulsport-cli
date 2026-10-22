@@ -91,9 +91,36 @@ def _run(handler: Callable[..., dict[str, Any]], as_json: bool, **kwargs: Any) -
     return EXIT_OK
 
 
+def _extract_globals(argv: list[str]) -> tuple[list[str], bool, str | None, float | None]:
+    """``--json``, ``--portal`` und ``--timeout`` dürfen vor oder nach dem Subcommand stehen."""
+    as_json = False
+    portal: str | None = None
+    timeout: float | None = None
+    rest: list[str] = []
+    i = 0
+    while i < len(argv):
+        arg = argv[i]
+        if arg == "--json":
+            as_json = True
+        elif arg == "--portal" and i + 1 < len(argv):
+            portal = argv[i + 1]
+            i += 1
+        elif arg == "--timeout" and i + 1 < len(argv):
+            timeout = float(argv[i + 1])
+            i += 1
+        elif arg.startswith("--portal="):
+            portal = arg.split("=", 1)[1]
+        elif arg.startswith("--timeout="):
+            timeout = float(arg.split("=", 1)[1])
+        else:
+            rest.append(arg)
+        i += 1
+    return rest, as_json, portal, timeout
+
+
 def main(argv: list[str] | None = None) -> int:
-    argv = argv if argv is not None else sys.argv[1:]
-    as_json = "--json" in argv
+    raw_argv = argv if argv is not None else sys.argv[1:]
+    argv, as_json, portal_arg, timeout_arg = _extract_globals(list(raw_argv))
 
     root = argparse.ArgumentParser(prog="hsport", description="Hochschulsport Buchsys CLI")
     root.add_argument("--version", action="version", version=f"hsport {__version__}")
@@ -128,12 +155,13 @@ def main(argv: list[str] | None = None) -> int:
     if unknown:
         return _fail(CliError(f"Unbekannte Argumente: {' '.join(unknown)}"), as_json)
 
-    timeout = args.timeout if args.timeout is not None else 20.0
+    timeout = timeout_arg if timeout_arg is not None else (args.timeout if args.timeout is not None else 20.0)
     client = HttpClient(timeout=timeout)
 
     from .portals import resolve_portal
 
-    portal = resolve_portal(args.portal) if args.portal else portal_from_env()
+    portal_raw = portal_arg if portal_arg is not None else args.portal
+    portal = resolve_portal(portal_raw) if portal_raw else portal_from_env()
 
     if args.command == "portals":
         return _run(cmd_portals, as_json, client=client)

@@ -51,10 +51,20 @@ def sp_link(name: str) -> str:
 
     Live verifiziert: die Ableitung erzeugt exakt die vorhandenen Dateinamen.
     """
-    text = name or ""
+    text = html_mod.unescape(name or "")
     for entity, replacement in _ENTITY_MAP.items():
         text = text.replace(entity, replacement)
     text = _ENTITY_NUMERIC.sub(lambda m: chr(int(m.group(1))), text)
+    for char, replacement in (
+        ("ä", "ae"),
+        ("ö", "oe"),
+        ("ü", "ue"),
+        ("Ä", "Ae"),
+        ("Ö", "Oe"),
+        ("Ü", "Ue"),
+        ("ß", "ss"),
+    ):
+        text = text.replace(char, replacement)
     text = text.replace("&", " und ")
     text = re.sub(r"_+", "_", text)
     text = re.sub(r"[^A-Za-z0-9\-]", "_", text)

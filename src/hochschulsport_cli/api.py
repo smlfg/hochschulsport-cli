@@ -214,7 +214,7 @@ def _enrich_status_from_sport_pages(
     for sport_name in by_sport:
         try:
             rows = _load_sport_page(portal, client, sport_name)
-        except UsageError:
+        except (UsageError, CliError):
             continue
         for row in rows:
             status_map[row.course_nr] = row.booking_status
