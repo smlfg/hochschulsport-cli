@@ -8,7 +8,17 @@ import sys
 from typing import Any, Callable
 
 from . import __version__
-from .api import cmd_courses, cmd_portals, cmd_sports, portal_from_env
+from pathlib import Path
+
+from .api import (
+    cmd_book,
+    cmd_course,
+    cmd_courses,
+    cmd_portals,
+    cmd_sports,
+    cmd_watch,
+    portal_from_env,
+)
 from .errors import CliError, EXIT_OK
 from .http_client import HttpClient
 
@@ -142,6 +152,25 @@ def main(argv: list[str] | None = None) -> int:
         help="Nur buchbare Kurse (Status buchbar)",
     )
 
+    course_p = sub.add_parser("course", help="Kursdetails zu einer Kursnummer")
+    course_p.add_argument("course_nr", metavar="KURSNR", help="Kursnummer")
+
+    watch_p = sub.add_parser("watch", help="Buchungsstatus beobachten")
+    watch_p.add_argument("course_nr", metavar="KURSNR", help="Kursnummer")
+    watch_p.add_argument(
+        "--state-file",
+        metavar="PATH",
+        help="Pfad zur Watch-State-Datei (Default: XDG config)",
+    )
+
+    book_p = sub.add_parser("book", help="Buchung vorbereiten oder mit --confirm absenden")
+    book_p.add_argument("course_nr", metavar="KURSNR", help="Kursnummer")
+    book_p.add_argument(
+        "--confirm",
+        action="store_true",
+        help="Buchung wirklich absenden (Pflicht-Env vorher setzen)",
+    )
+
     try:
         args, unknown = root.parse_known_args(argv)
     except SystemExit:
@@ -179,6 +208,39 @@ def main(argv: list[str] | None = None) -> int:
             query=args.query,
             day=args.day,
             free_only=args.free_only,
+        )
+
+    if args.command == "course":
+        return _run(
+            cmd_course,
+            as_json,
+            portal=portal,
+            client=client,
+            course_nr=args.course_nr,
+        )
+
+    if args.command == "watch":
+        state_path = Path(args.state_file) if args.state_file else None
+        try:
+            payload, exit_code = cmd_watch(
+                portal,
+                client,
+                course_nr=args.course_nr,
+                state_file=state_path,
+            )
+        except CliError as exc:
+            return _fail(exc, as_json)
+        _emit(payload, as_json)
+        return exit_code
+
+    if args.command == "book":
+        return _run(
+            cmd_book,
+            as_json,
+            portal=portal,
+            client=client,
+            course_nr=args.course_nr,
+            confirm=args.confirm,
         )
 
     return _fail(CliError(f"Unbekannter Befehl: {args.command}"), as_json)

@@ -5,17 +5,33 @@ from __future__ import annotations
 import os
 import re
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
-from .errors import CliError, ParseError, UsageError
+from .errors import CliError, EXIT_OK, ParseError, UsageError
 from .http_client import HttpClient
 from .models import DAY_ALIASES, DAYS, STATUS_BOOKABLE, Course, Sport
+from .booking import (
+    ensure_bookable,
+    load_booking_credentials,
+    parse_booking_form,
+    required_env_field_names,
+    submit_booking,
+)
+from .course_resolve import resolve_course
 from .parser import (
     courses_from_search_data,
     parse_course_rows,
     parse_search_data,
     parse_sports,
     sport_filename,
+)
+from .watch_state import (
+    EXIT_WATCH_CHANGED,
+    load_watch_state,
+    read_course_entry,
+    save_watch_state,
+    write_course_entry,
 )
 from .portals import (
     DEFAULT_PORTAL_ID,
@@ -269,3 +285,110 @@ def cmd_courses(
         "courses": [c.to_dict() for c in courses],
         "count": len(courses),
     }
+
+
+def cmd_course(
+    portal: Portal,
+    client: HttpClient,
+    *,
+    course_nr: str,
+) -> dict[str, Any]:
+    course = resolve_course(portal, client, course_nr)
+    return {"portal": portal.id, **course.to_detail_dict()}
+
+
+def cmd_watch(
+    portal: Portal,
+    client: HttpClient,
+    *,
+    course_nr: str,
+    state_file: Path | None = None,
+) -> tuple[dict[str, Any], int]:
+    course = resolve_course(portal, client, course_nr)
+    state = load_watch_state(state_file)
+    previous = read_course_entry(state, portal.id, course_nr)
+    changed = False
+    previous_status = None
+    if previous is None:
+        changed = False
+    elif previous.get("booking_status") != course.booking_status:
+        changed = True
+        previous_status = previous.get("booking_status")
+
+    write_course_entry(
+        state,
+        portal_id=portal.id,
+        course_nr=course_nr,
+        booking_status=course.booking_status,
+    )
+    save_watch_state(state, state_file)
+
+    payload: dict[str, Any] = {
+        "portal": portal.id,
+        "course_nr": course_nr,
+        "booking_status": course.booking_status,
+        "changed": changed,
+    }
+    if previous_status is not None:
+        payload["previous_status"] = previous_status
+    exit_code = EXIT_WATCH_CHANGED if changed else EXIT_OK
+    return payload, exit_code
+
+
+def cmd_book(
+    portal: Portal,
+    client: HttpClient,
+    *,
+    course_nr: str,
+    confirm: bool = False,
+) -> dict[str, Any]:
+    if confirm:
+        credentials = load_booking_credentials()
+    else:
+        credentials = None
+
+    course = resolve_course(portal, client, course_nr)
+    ensure_bookable(course.booking_status, course_nr)
+
+    slug = sport_filename(course.sport)
+    sport_url = portal.url(f"{OFFERTS_PATH}/{slug}")
+    sport_html = client.get_text(sport_url, portal=portal.id)
+    form = parse_booking_form(
+        sport_html,
+        course_nr,
+        portal.base_url,
+        booking_status=course.booking_status,
+        mask_csrf=not confirm,
+    )
+
+    payload: dict[str, Any] = {
+        "portal": portal.id,
+        "course_nr": course_nr,
+        "title": course.title,
+        "booking_status": course.booking_status,
+        "prices": [p.to_dict() for p in course.prices],
+        "bookable": form.bookable,
+        "dry_run": not confirm,
+        "submitted": False,
+        "form": form.to_dict(),
+        "required_env": required_env_field_names(),
+        "would_submit": {
+            "method": form.method,
+            "action_url": form.action_url,
+            "fields": [f["name"] for f in form.fields],
+            "submit_field": form.submit_field,
+        },
+    }
+
+    if confirm:
+        assert credentials is not None
+        result = submit_booking(
+            portal,
+            client,
+            sport_name=course.sport,
+            course_nr=course_nr,
+            booking_status=course.booking_status,
+            credentials=credentials,
+        )
+        payload.update(result)
+    return payload
