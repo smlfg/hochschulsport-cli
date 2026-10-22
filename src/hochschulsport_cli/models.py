@@ -103,6 +103,7 @@ class Course:
     sessions: list[Session] = field(default_factory=list)
     locations: list[dict[str, Any]] = field(default_factory=list)
     category: str | None = None
+    sport_description: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -118,6 +119,14 @@ class Course:
             "booking_status": self.booking_status,
             "detail_url": self.detail_url,
         }
+
+    def to_detail_dict(self) -> dict[str, Any]:
+        payload = self.to_dict()
+        payload["sessions"] = [s.to_dict() for s in self.sessions]
+        payload["locations"] = self.locations
+        if self.sport_description:
+            payload["sport_description"] = self.sport_description
+        return payload
 
 
 @dataclass

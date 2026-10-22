@@ -369,7 +369,56 @@ def courses_from_search_data(data: dict[str, Any], base_url: str = "") -> list[C
     return courses
 
 
-def parse_course_detail(markup: str, base_url: str = "") -> Course | None:
+_DETAIL_LABELS = frozenset(
+    {
+        "Zeitraum:",
+        "Leitung:",
+        "Veranstaltungsorte:",
+        "Preise:",
+        "geplante Termine:",
+        "Angebotsdetails",
+    }
+)
+
+
+def _text_after_label(tag) -> str:
+    parts: list[str] = []
+    for sibling in tag.next_siblings:
+        name = getattr(sibling, "name", None)
+        if name == "b":
+            break
+        if name == "table":
+            break
+        if name == "br":
+            continue
+        if hasattr(sibling, "get_text"):
+            chunk = clean(sibling.get_text(" ", strip=True))
+            if chunk:
+                parts.append(chunk)
+        elif isinstance(sibling, str):
+            chunk = clean(sibling)
+            if chunk:
+                parts.append(chunk)
+    return clean(" ".join(parts))
+
+
+def parse_sport_description(markup: str) -> str | None:
+    """Beschreibungstext der Sportseite (``div.bs_kursbeschreibung``)."""
+    soup = _soup(markup)
+    blocks = soup.select("div.bs_kursbeschreibung")
+    if not blocks:
+        return None
+    texts = [clean(block.get_text("\n", strip=True)) for block in blocks]
+    joined = clean("\n\n".join(t for t in texts if t))
+    return joined or None
+
+
+def parse_course_detail(
+    markup: str,
+    base_url: str = "",
+    *,
+    detail_url: str | None = None,
+) -> Course | None:
     """Parst eine Kursdetailseite (``cgi/webpage.cgi?kursinfo=<hex>``)."""
     soup = _soup(markup)
     content = soup.find(id="bs_content")
@@ -385,27 +434,40 @@ def parse_course_detail(markup: str, base_url: str = "") -> Course | None:
 
     for strong in content.find_all("b"):
         label = clean(strong.get_text())
-        value = strong.find_next_sibling()
-        text = clean(value.get_text()) if value is not None else ""
-        if re.fullmatch(r"[A-Za-z0-9\-]+:", label):
+        if (
+            label.endswith(":")
+            and label not in _DETAIL_LABELS
+            and re.fullmatch(r"[A-Za-z0-9\-]+:", label)
+        ):
             number = label.rstrip(":")
-        elif label == "Zeitraum:":
-            period = text
+            continue
+        if label == "Zeitraum:":
+            period = _text_after_label(strong) or None
         elif label == "Leitung:":
-            instructor = text or None
+            instructor = _text_after_label(strong) or None
         elif label == "Veranstaltungsorte:":
-            for link in value.find_all("a") if value is not None else []:
-                locations.append({"name": clean(link.get_text())})
-            if value is not None:
-                raw = clean(value.get_text())
-                if raw and not locations:
-                    locations.append({"name": raw})
+            text_block = strong.find_next("div", class_="bs_text")
+            if text_block is not None:
+                raw = clean(text_block.get_text(" ", strip=True))
+                if raw:
+                    name = raw.split(",")[0].strip()
+                    address = raw
+                    if "," in raw:
+                        address = clean(raw.split(",", 1)[1])
+                    locations.append({"name": name, "address": address})
+            else:
+                text = _text_after_label(strong)
+                if text:
+                    locations.append({"name": text})
         elif label == "Preise:":
+            text = _text_after_label(strong)
             for line in text.split("\n"):
                 line = clean(line)
                 if not line:
                     continue
-                match = re.match(r"([\d.,]+)\s*EUR\s*(?:für|für)?\s*(.+)", line)
+                match = re.match(
+                    r"([\d.,]+)\s*EUR\s*(?:für|fuer)?\s*(.+)", line, re.IGNORECASE
+                )
                 if match:
                     prices.append(
                         Price(
@@ -416,38 +478,37 @@ def parse_course_detail(markup: str, base_url: str = "") -> Course | None:
             if not prices and "entgeltfrei" in text.lower():
                 prices = [Price(group="alle", price_eur=0.0)]
 
-    for table in content.select("table"):
-        rows = table.select("tr")
-        if not rows:
-            continue
-        labels = [clean(td.get("data-label")) for td in rows[0].find_all("td")]
-        if "Tag" not in labels and "Termin" not in labels:
-            continue
-        for tr in rows:
-            cells = [clean(td.get_text()) for td in tr.find_all("td")]
-            if len(cells) < 3:
+    for table in content.select("table.bs_kurse, table"):
+        for tr in table.select("tr"):
+            cells = tr.find_all("td")
+            if not cells or not cells[0].get("data-label"):
                 continue
             session = Session()
-            for label, value in zip(labels, cells):
+            for td in cells:
+                label = clean(td.get("data-label"))
+                value = clean(td.get_text())
                 if label == "Tag":
                     session.day = value
                 elif label == "Termin":
-                    session.date = value
+                    session.date = value.replace("Termin", "").strip() or value
                 elif label == "Zeit":
                     session.time = value
                 elif label == "Ort":
                     session.location = value
-            sessions.append(session)
+            if session.day or session.date:
+                sessions.append(session)
 
     heads = [clean(h.get_text()) for h in content.select("div.bs_head")]
-    title = ""
     for head in heads:
-        if head and not re.fullmatch(r"[A-Za-z0-9\-]+:", head):
+        if head and head not in {"Angebotsdetails"} and not head.endswith(":"):
             title = head
             break
 
     if number is None:
         return None
+    resolved_url = detail_url
+    if resolved_url is None and base_url:
+        resolved_url = f"{base_url.rstrip('/')}/cgi/webpage.cgi?kursinfo="
     return Course(
         course_nr=number,
         title=title,
@@ -459,9 +520,7 @@ def parse_course_detail(markup: str, base_url: str = "") -> Course | None:
         period=period,
         prices=prices,
         booking_status=STATUS_NOT_BOOKABLE,
-        detail_url=(
-            f"{base_url.rstrip('/')}/cgi/webpage.cgi?kursinfo=" if base_url else None
-        ),
+        detail_url=resolved_url,
         sessions=sessions,
         locations=locations,
     )
