@@ -1,0 +1,129 @@
+<!DOCTYPE html><html class="v5 l" lang="de"><head><meta charset="utf-8" /><title>Kursbuchung : Hochschulsport Hamburg</title><meta content="width=device-width, initial-scale=1" name="viewport" /><meta name="csrf-param" content="authenticity_token" />
+<meta name="csrf-token" content="rQVLXQ3Dew_asQi7eKcs58u1xyRsCYDvSx710dHRKtjay8aSnqw4DB_YKj18dDk-vXq6eaOt-ld7XDznnhx50A" /><meta content="www3-fiona" name="srcsvr" /><meta content="66g1q0uz95tch9afvqkkiy8ut2cega" name="facebook-domain-verification" /><meta content="Kursbuchung" property="og:title" /><meta content="https://www.hochschulsport.uni-hamburg.de/sportcampus/buchsys.html" property="og:url" /><meta content="website" property="og:type" /><meta content="https://www.hochschulsport.uni-hamburg.de/11842645/schuhe-1200x300-cec984ea0fb32dcb27144ddf0b95a3ce03d23b26.jpg" property="og:image" /><link as="font" crossorigin="anonymous" href="https://assets.rrz.uni-hamburg.de/assets/TheSansUHHSemiLightCaps-32ba22c7d79fd9bb62f6fdc072fb890589bf54d6665920f1c24590c325a3239b.woff2"  /><link as="font" crossorigin="anonymous" href="https://assets.rrz.uni-hamburg.de/assets/TheSansUHHBold-7bc7a19f2f859b122f413c47ab20a3459e68b5484d4e41852c867e1af7fdb23f.woff2" rel="preload" /><link as="font" crossorigin="anonymous" href="https://assets.rrz.uni-hamburg.de/assets/TheSansUHHBoldCaps-e693e29862e9a63c8fcda7276514608cf455cb6db1c1d5ba18a5cbbafdb8453b.woff2" rel="preload" /><link as="font" crossorigin="anonymous" href="https://assets.rrz.uni-hamburg.de/assets/TheSansUHHRegular-d12c570fcf82daa59706e8bc063b08989230fd572b48d91d4ce4766d6399e157.woff2" rel="preload" /><link as="font" crossorigin="anonymous" href="https://assets.rrz.uni-hamburg.de/assets/TheSansUHHRegularCaps-2b6f7440c42c3e72ad537b81477bb606ae8e63b48872d6bd715b19a5a7811ba7.woff2" rel="preload" /><link as="font" crossorigin="anonymous" href="https://assets.rrz.uni-hamburg.de/assets/TheSansUHHRegularItalic-d6fab6cd19bfdef91af497a14e0f55591960c719c1e743956e22524fbdff953d.woff2" rel="preload" /><link href="https://www.hochschulsport.uni-hamburg.de/sportcampus/buchsys.html" rel="canonical" /><link href="https://assets.rrz.uni-hamburg.de/instance_assets/zentrale/16905129/bobbel-transparent-48x48-8cfde65b2e227305bc2af0dea1620114228a14ce.png" rel="icon" type="image/png" /><script>var t0 = Date.now();
+;(function(){
+window.addEventListener('error', detectJavascriptErrors);
+  function detectJavascriptErrors(ev) {
+    var error;
+    try { error = { message: ev.message, filename: ev.filename, stack: ('error' in ev && ev.error != null && 'stack' in ev.error)? ev.error.stack.replace(/(?:\r\n|\r|\n)/g, ' => ').replace(/\s+/g, ' ') : 'undefined', platform: navigator.platform }}
+    catch (err) {error = {catchMessage: err.message, message: ev.message, filename: ev.filename, platform: navigator.platform}}
+    var img = new Image();
+    img.src = 'https://www.betterweb.uni-hamburg.de/web/error.png?error=' + encodeURIComponent(JSON.stringify(error)) + '&url=' + document.location.href + '&t='+Date.now();
+    window.removeEventListener('error', detectJavascriptErrors);
+  }
+})();
+var htmlEl = document.documentElement;
+var UHH = {
+  onload: function(f){
+    if (document.readyState == "complete") { f() }
+    else { window.addEventListener("load", f )}
+  },
+  ready: function(f){
+    if (document.readyState == "interactive" || document.readyState == "complete") { UHH.raf(f) }
+    else { document.addEventListener("DOMContentLoaded", function(){UHH.raf(f)})}
+  },
+  ready2: function(f){$(f)},
+  hasClass : function(name,el){
+    var c = el.className.replace(/^\s+/,"").replace(/\s+$/,"").replace(/\s+/g," ").split(" ");
+    for (var i=0; i<c.length;i++) { if (c[i]===name) {return true; break} }
+    return false
+  },
+  addClass: function(name,el){
+    var cn = el.className;
+    var c = name.split(" ");
+    for (var i=0; i<c.length;i++) { if (!UHH.hasClass(c[i],el)) {cn = [cn, c[i]].join(' ')} }
+    el.className = cn;
+  },
+  removeClass: function(name,el){
+    var c = el.className.replace(/^\s+/,"").replace(/\s+$/,"").replace(/\s+/g," ").split(" ");
+    var n = name.replace(/^\s+/,"").replace(/\s+$/,"").replace(/\s+/g," ").split(" ");
+    for (var i=0; i<c.length;i++) { for (var j=0; j<n.length;j++) { if (c[i] === n[j]) {c.splice(i,1)} } }
+    el.className = c.join(" ");
+  },
+  when: function (condition, then, dt) {
+    dt = dt ? dt : 50;
+    var DT = 10000, ready = false;
+    setTimeout(loop,dt);
+    function loop() {
+      try { ready = condition() } catch(e) {}
+      if (ready == true) { then() }
+      else if (dt < DT){ dt *= 1.25; setTimeout(loop,dt) }
+    }
+  },
+  $: function(f){ UHH.when( function () {return (("jQuery" in window) && (document.readyState == "interactive" || document.readyState == "complete"))}, f) },
+  $$: function(f){ UHH.when( function () {return (("jsReady" in UHH) && UHH.jsReady)}, f) },
+  raf: function(f){
+    if ("requestAnimationFrame" in window) { window.requestAnimationFrame(f) }
+    else { setTimeout(f,20) }
+  },
+  importJS: function (url, options) {
+    var id = options && options.id ? options.id : false;
+    var async = options && options.async ? options.async : false;
+    var onload = (options && options.onload && typeof options.onload == 'function')? options.onload : false;
+    if (!id || (id && !document.getElementById(options.id))) {
+      var newJS = document.createElement("script");
+      newJS.crossorigin = "anonymous";
+      if (!!id) {newJS.id = options.id}
+      if (!!async) { newJS.async = 'async' }
+      if (!!onload) { newJS.onload = options.onload }
+      document.head.appendChild(newJS);
+      newJS.src = url;
+    }
+  },
+  importCSS: function (url, options) {
+    var id = options && options.id ? options.id : false;
+    var onload = (options && options.onload && typeof options.onload == 'function')? options.onload : false;
+    if (!id || (id && !document.getElementById(options.id))) {
+      var newCSS = document.createElement('link');
+      newCSS.rel = 'stylesheet';
+      newCSS.type = 'text/css';
+      newCSS.media = 'screen';
+      if (!!id) {newCSS.id = options.id}
+      if (!!onload) { newCSS.onload = options.onload }
+      document.head.appendChild(newCSS);
+      newCSS.href = url;
+    }
+  }
+};
+
+UHH.addClass('js',htmlEl);
+if (navigator.userAgent.toLowerCase().includes("firefox")) {UHH.addClass('firefox',htmlEl)}
+if (!(function(){try{return (window.document.createElement("link").relList.supports( "preload" ))}catch(e){return false}})()) {
+  (function(){
+    var css = document.getElementById('css-2');
+    css.media = "print";
+    css.rel = "stylesheet";
+    css.removeAttribute('as');
+    css.onload = null;
+    css.onload = function(){ this.onload=null; this.media="all";  }
+  })()
+}
+
+;(function responsive(){
+  if (window.matchMedia) {
+    var m = window.matchMedia( "(max-width: 1200px)" );
+    var s = window.matchMedia( "(max-width: 640px)" );
+    m.addListener(function() {responsive(m,s)});
+    s.addListener(function() {responsive(m,s)});
+    responsive(m,s)
+  }
+  function responsive(m,s){
+    var cl = 'l';
+    if (window.matchMedia) {
+      if (m.matches) { cl = 'm' }
+      if (s.matches) { cl = 's' }
+    }
+    UHH.removeClass('s m l',htmlEl);
+    UHH.addClass(cl,htmlEl);
+    if (typeof toggleDom == "function") {toggleDom();}
+    if ("$" in window && typeof $ == 'function') { $(window).trigger("responsiveSlotChange") }
+  }
+})();</script><link rel="stylesheet" href="https://assets.rrz.uni-hamburg.de/assets/1-78c50b0514329d9adbf9a676d18569443588a254e323458fc03fcb07ad399be0.css" media="all" id="css-1" /><link as="style" href="https://assets.rrz.uni-hamburg.de/assets/2-0f0d1c629b17c40ed2c474fa4190f0cf53e9a0acdd5b457002195dab33c2cea5.css" id="css-2"  rel="preload" /><noscript><link rel="stylesheet" href="https://assets.rrz.uni-hamburg.de/assets/2-0f0d1c629b17c40ed2c474fa4190f0cf53e9a0acdd5b457002195dab33c2cea5.css" media="all" /></noscript><link rel="stylesheet" href="https://assets.rrz.uni-hamburg.de/assets/print-85727ed44b77df53ff88b8a79482dc1ba86ec114c0f78c348368e4be1d7acaee.css" media="print" /><link as="script" href="https://assets.rrz.uni-hamburg.de/assets/2-fa5ab7a5fdfbe1238b7ec2c2dd961fc098781b68a4cb6a930a6fb8b6161cbdfb.js" rel="preload" /><style>@media (min-width: 0px) and (max-width: 640px)     { .slide-1-1.bild{background-image:url("https://assets.rrz.uni-hamburg.de/instance_assets/zentrale/11842654/schuhe-640x200-4881b7045bdfe9f1ae4a21659b2662b43af9ad0e.jpg")} }@media (min-width: 641px) and (max-width: 1200px)  { .slide-1-1.bild{background-image:url("https://assets.rrz.uni-hamburg.de/instance_assets/zentrale/11842645/schuhe-1200x300-cec984ea0fb32dcb27144ddf0b95a3ce03d23b26.jpg")} }@media (min-width: 1201px) and (max-width: 6000px) { .slide-1-1.bild{background-image:url("https://assets.rrz.uni-hamburg.de/instance_assets/zentrale/11842636/schuhe-2190x400-21ce54d101a351cd8f6dcedde153d921c68e4325.jpg")} }</style>
+    <meta http-equiv="Expires" content="5" /><meta http-equiv="refresh" content="1800" /><meta name="referrer" content="no-referrer-when-downgrade" />
+    <meta http-equiv="cache-control" content="no-cache, no-store, must-revalidate, max-age=0" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Content-Style-Type" content="text/css" />
+    <link href="/buchsys/lib/global/flyout_menu1.css" rel="stylesheet" media="all" type="text/css" />
+    <link href="/buchsys/lib/global/angebote.css" rel="stylesheet" media="all" type="text/css" />
+    <link href="/SysBilder/resex/bs_style.css" rel="stylesheet" media="all" type="text/css" />
+<meta name="robots" content="noarchive,noimageindex,unavailable_after: 2026-11-21"></head><body class="einrichtung extern slider-inhalt bs_kursinfo" id="11320815"><ul class="versteckt" id="hiddennav"><li><a href="https://www.hochschulsport.uni-hamburg.de/sportcampus/buchsys.html#meta">Zur Metanavigation</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/sportcampus/buchsys.html#nav">Zur Hauptnavigation</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/sportcampus/buchsys.html#suche">Zur Suche</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/sportcampus/buchsys.html#inhalt">Zum Inhalt</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/sportcampus/buchsys.html#subnav">Zur Subnavigation</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/sportcampus/buchsys.html#fuss">Zum Seitenfuß</a></li></ul><div id="seite"><header><section aria-label="Metanavigation" id="meta"><div class="breite"><nav aria-label="Topnavigation 1" class="links"></nav><nav aria-label="Topnavigation 2" class="rechts"><ul><li class="suche"></li><li class="mobilemenu"><div class="ajax versteckt"><div class="url">/sitemap.json</div></div><a aria-controls="mobilemenu" aria-expanded="false" aria-label="Menu" href="https://www.hochschulsport.uni-hamburg.de/sportcampus/buchsys.html#" id="hamburger" role="button"></a><div id="mobilemenu"></div><div class="abdeckung"></div></li></ul></nav></div></section><section class="logos"><div class="breite"><div class="bild"><a href="https://www.hochschulsport.uni-hamburg.de/"><img title="zur Startseite" src="https://assets.rrz.uni-hamburg.de/instance_assets/zentrale/13656825/logo-hochschulsport-transparent-4d2d8256fe53e06896544277e44a6e7d4359daf2.jpg" alt="logo-hochschulsport-transparent" /></a></div><div class="text"><a href="https://www.hochschulsport.uni-hamburg.de/"><h1 class="kurz">Hochschulsport Hamburg</h1><div class="wortmarke">Hochschulsport Hamburg</div></a></div></div></section></header><section class="nav"><div class="breite"><nav aria-label="Hauptnavigation" class="top menu" id="nav"><ul><li><a class="hier" href="https://www.hochschulsport.uni-hamburg.de/sportcampus.html">SportCampus</a><ul><li><a href="https://www.hochschulsport.uni-hamburg.de/sportcampus/vona-z.html">Von A - Z</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/sportcampus/flexicard.html">FlexiCard</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/sportcampus/studios.html">Fitnessstudios</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/sportcampus/online.html">Online</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/sportcampus/reisen.html">Reisen</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/sportcampus/schwimmen.html">Schwimmen</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/sportcampus/wasser-draussen.html">Wassersport</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/sportcampus/kinder.html">Kinder</a></li></ul></li><li><a href="https://www.hochschulsport.uni-hamburg.de/healthycampus.html">HealthyCampus</a><ul><li><a href="https://www.hochschulsport.uni-hamburg.de/healthycampus/haw.html">An der HAW Hamburg</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/healthycampus/tu.html">An der TUHH</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/healthycampus/uni.html">An der Universität</a></li></ul></li><li><a href="https://www.hochschulsport.uni-hamburg.de/eventcampus.html">EventCampus</a><ul><li><a href="https://www.hochschulsport.uni-hamburg.de/eventcampus/termine.html">Termine</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/eventcampus/wettkampf.html">Wettkampfsport</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/eventcampus/sportveranstaltungen.html">Sportveranstaltungen</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/eventcampus/spitzensportfoerderung.html">Spitzensportförderung</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/eventcampus/specials.html">Specials</a></li></ul></li><li><a href="https://www.hochschulsport.uni-hamburg.de/ueberuns.html">Über uns</a><ul><li><a href="https://www.hochschulsport.uni-hamburg.de/ueberuns/team.html">Team</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/ueberuns/werte.html">Unsere Werte</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/ueberuns/hochschulen.html">Hochschulen</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/ueberuns/partner.html">Partner</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/ueberuns/ausbildung.html">Ausbildung</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/ueberuns/geschichte.html">Geschichte</a></li></ul></li><li><a href="https://www.hochschulsport.uni-hamburg.de/informationen.html">Informationen</a><ul><li><a href="https://www.hochschulsport.uni-hamburg.de/informationen/aktuelles.html">News</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/informationen/agb.html">AGB</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/informationen/jobs.html">Jobs</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/informationen/faq.html">FAQ</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/informationen/sportstaetten.html">Sportstätten</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/informationen/newsletter.html">Newsletter</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/informationen/kontakt.html">Kontakt</a></li><li><a target="_self" href="https://www.hochschulsport.uni-hamburg.de/privacypolicy.html">Datenschutzerklärung</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/informationen/barrierefreiheit.html">Barrierefreiheit</a></li></ul></li><li><a href="https://www.hochschulsport.uni-hamburg.de/awareness.html">Awareness</a><ul><li><a href="https://www.hochschulsport.uni-hamburg.de/awareness/antidiskriminierung.html">Anti-DISKRIMINIERUNG</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/awareness/nachhaltigkeit.html">Nachhaltigkeit</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/awareness/leitbild.html">Leitbild</a></li></ul></li></ul></nav><section aria-label="Suche" id="suche"><a aria-controls="sucheingabe" aria-expanded="false" aria-label="Suche" href="https://www.hochschulsport.uni-hamburg.de/sportcampus/buchsys.html#" id="suchea" role="button"></a><form action="/search.html" id="sucheingabe"><input aria-label="Suchbegriff" class="input-x" name="q" placeholder="mit Google™ suchen ..." tabindex="-1" type="text" /><input tabindex="-1" type="submit" value="Suchen" /></form></section></div></section><div id="inhalt"><section class="oben"><div class="scaling full-width-image"><div aria-label="Laufschuhe auf Tartanbahn" class="slide-1-1 bild" role="img"></div><div class="container"><p class="bildnachweis">Foto: Hochschulsport Hamburg</p></div></div></section><nav aria-label="Breadcrumb" class="breadcrumb"><ol typeof="BreadcrumbList" vocab="https://schema.org/"><li property="itemListElement" typeof="ListItem"><a property="item" typeof="WebPage" href="https://www.hochschulsport.uni-hamburg.de/"><span property="name">Hochschulsport Hamburg</span></a><meta content="1" property="position" /></li><li property="itemListElement" typeof="ListItem"><a property="item" typeof="WebPage" href="https://www.hochschulsport.uni-hamburg.de/sportcampus.html"><span property="name">SportCampus</span></a><meta content="2" property="position" /></li><li property="itemListElement" typeof="ListItem"><a property="item" typeof="WebPage" aria-current="page" href="https://www.hochschulsport.uni-hamburg.de/sportcampus/buchsys.html"><span property="name">Kursbuchung</span></a><meta content="3" property="position" /></li></ol></nav><main id="hauptinhalt"><section class="spalten breite"><article class="spalte links"><div class="outer h1"><h1>Kursbuchung</h1></div><div class="outer"><div class="standard"><p></p>
+<div id="bs_content" lang="de"><b>Wintersemester 2026/2027</b><br><br><div class="bs_head">Angebotsdetails</div><b>623105:</b><br><div class="bs_head">Bouldern Grundkurs Technik, Sicherheit und Training</div><br><br><b>Zeitraum:</b><br>22.10.2026<br><br><b>geplante Termine:</b><br><table class="bs_kurse"><tr><td data-label="Tag">Do</td><td data-label="Termin"><b>22.10.2026</b></td><td data-label="Zeit">17.00-19.00</td><td data-label="Ort"><span><a href="https://buchung.hochschulsport-hamburg.de/cgi/webpage.cgi?spid=67dba7390f4d6bf2fab949bf4362725a&amp;campus=0&amp;z=45&amp;f=0">Urban Apes Wandsbek</a></span></td></tr></table><br><br><b>Leitung:</b><br><div class="bs_text">Tobias Stadlmayr</div><br><br><b>Veranstaltungsorte:</b><br><div class="bs_text"><a href="https://buchung.hochschulsport-hamburg.de/cgi/webpage.cgi?spid=67dba7390f4d6bf2fab949bf4362725a&amp;campus=0&amp;z=45&amp;f=0">Urban Apes Wandsbek</a>,  Wandsbeker Zollstra&#223;e 87-89, , 22041 Hamburg</div><br><br><b>Preise:</b><br>20,00 EUR f&uuml;r Studierende<br>30,00 EUR f&uuml;r Besch&#228;ftigte<br>40,00 EUR f&uuml;r G&#228;ste<br></table><div class="bs_endspace"></div></div></div></div></article><div class="spalte rechts"><nav aria-label="Subnavigation" class="subnav"><ul id="subnav"><li><h2><a href="https://www.hochschulsport.uni-hamburg.de/sportcampus.html">SportCampus</a></h2></li><li><a href="https://www.hochschulsport.uni-hamburg.de/sportcampus/vona-z.html">Von A - Z</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/sportcampus/flexicard.html">FlexiCard</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/sportcampus/studios.html">Fitnessstudios</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/sportcampus/online.html">Online</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/sportcampus/reisen.html">Reisen</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/sportcampus/schwimmen.html">Schwimmen</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/sportcampus/wasser-draussen.html">Wassersport</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/sportcampus/kinder.html">Kinder</a></li></ul></nav></div><div class="spalte abschluss"></div></section><section class="unten"></section></main></div><footer aria-label="Seitenfuss" id="fuss"><section class="info"><div class="breite"><p>Verändert am 1. Dezember 2025</p><ul class="linkliste"><li><a class="feedback" rel="nofollow" href="https://www.hochschulsport.uni-hamburg.de/feedback.html?local_url=https%3A%2F%2Fwww.hochschulsport.uni-hamburg.de%2Fsportcampus%2Fbuchsys.html">Feedback</a></li><li><a class="imprint" href="https://www.hochschulsport.uni-hamburg.de/imprint.html">Impressum</a></li><li><a class="privacypolicy" href="https://www.hochschulsport.uni-hamburg.de/privacypolicy-alt.html">Datenschutzerklärung</a></li><li><a class="sitemap" href="https://www.hochschulsport.uni-hamburg.de/sitemap.html">Sitemap</a></li></ul></div></section><section class="global konferenz"><nav aria-label="Allgemeine Links" class="liste box"><div class="breite"><ul><li class="titel"><a class="hier" href="https://www.hochschulsport.uni-hamburg.de/sportcampus.html">SportCampus</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/sportcampus/vona-z.html">Von A - Z</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/sportcampus/flexicard.html">FlexiCard</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/sportcampus/studios.html">Fitnessstudios</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/sportcampus/online.html">Online</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/sportcampus/reisen.html">Reisen</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/sportcampus/schwimmen.html">Schwimmen</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/sportcampus/wasser-draussen.html">Wassersport</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/sportcampus/kinder.html">Kinder</a></li></ul><ul><li class="titel"><a href="https://www.hochschulsport.uni-hamburg.de/healthycampus.html">HealthyCampus</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/healthycampus/haw.html">An der HAW Hamburg</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/healthycampus/tu.html">An der TUHH</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/healthycampus/uni.html">An der Universität</a></li></ul><ul><li class="titel"><a href="https://www.hochschulsport.uni-hamburg.de/eventcampus.html">EventCampus</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/eventcampus/termine.html">Termine</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/eventcampus/wettkampf.html">Wettkampfsport</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/eventcampus/sportveranstaltungen.html">Sportveranstaltungen</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/eventcampus/spitzensportfoerderung.html">Spitzensportförderung</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/eventcampus/specials.html">Specials</a></li></ul><ul><li class="titel"><a href="https://www.hochschulsport.uni-hamburg.de/ueberuns.html">Über uns</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/ueberuns/team.html">Team</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/ueberuns/werte.html">Unsere Werte</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/ueberuns/hochschulen.html">Hochschulen</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/ueberuns/partner.html">Partner</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/ueberuns/ausbildung.html">Ausbildung</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/ueberuns/geschichte.html">Geschichte</a></li></ul><ul><li class="titel"><a href="https://www.hochschulsport.uni-hamburg.de/informationen.html">Informationen</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/informationen/aktuelles.html">News</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/informationen/agb.html">AGB</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/informationen/jobs.html">Jobs</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/informationen/faq.html">FAQ</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/informationen/sportstaetten.html">Sportstätten</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/informationen/newsletter.html">Newsletter</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/informationen/kontakt.html">Kontakt</a></li><li><a target="_self" href="https://www.hochschulsport.uni-hamburg.de/privacypolicy.html">Datenschutzerklärung</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/informationen/barrierefreiheit.html">Barrierefreiheit</a></li></ul><ul><li class="titel"><a href="https://www.hochschulsport.uni-hamburg.de/awareness.html">Awareness</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/awareness/antidiskriminierung.html">Anti-DISKRIMINIERUNG</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/awareness/nachhaltigkeit.html">Nachhaltigkeit</a></li><li><a href="https://www.hochschulsport.uni-hamburg.de/awareness/leitbild.html">Leitbild</a></li></ul><p class="copyright">&copy; 2026 Universität Hamburg. Alle Rechte vorbehalten</p></div></nav></section></footer></div><div id="sponsors"></div><div class="tracking" style="display:none"><div class="etracker"></div></div></body></html>

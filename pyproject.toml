@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hochschulsport-cli"
+version = "0.1.0"
+description = "hsport – Agent-CLI für Hochschulsport-Buchungsportale (Buchsys): Sportarten, Kurse mit Buchungsstatus, Kursdetails, Preis-Watch, Buchungs-Vorbereitung. Buchen nur mit --confirm."
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [{name = "smlfg", email = "186922365+smlfg@users.noreply.github.com"}]
+keywords = [
+    "hochschulsport",
+    "buchsys",
+    "hochschulsport-cli",
+    "hsport",
+    "sports",
+    "booking",
+    "agent",
+    "cli",
+]
+classifiers = [
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Topic :: Utilities",
+]
+dependencies = [
+    "requests>=2.31",
+    "beautifulsoup4>=4.12",
+    "lxml>=4.9",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
+[project.scripts]
+hsport = "hochschulsport_cli.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
