@@ -45,6 +45,8 @@ class FixtureHttpClient(HttpClient):
             return Path(FIXTURES / "kurssuche_stuttgart.js").read_text(
                 encoding="utf-8", errors="replace"
             )
+        if "kursinfo=76DC9CFAE3" in url:
+            return _read_fixture("course_13600_stuttgart.html")
         if "kursinfo=" in url:
             return _read_fixture("course_50100_stuttgart.html")
         if "_Bogensport.html" in url:

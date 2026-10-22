@@ -381,6 +381,85 @@ _DETAIL_LABELS = frozenset(
 )
 
 
+_DETAIL_PRICE_LINE = re.compile(
+    r"^([\d.,]+)\s*EUR\s*(?:für|fuer)?\s*(.+)$",
+    re.IGNORECASE,
+)
+_DETAIL_PRICE_MULTI = re.compile(
+    r"([\d.,]+)\s*EUR\s*(?:für|fuer)?\s*(.+?)(?=\s+\d[\d.,]*\s*EUR|$)",
+    re.IGNORECASE,
+)
+
+
+def _lines_after_label(tag) -> list[str]:
+    """Textzeilen nach einem ``<b>Label:</b>`` (getrennt durch ``<br>``)."""
+    lines: list[str] = []
+    for sibling in tag.next_siblings:
+        name = getattr(sibling, "name", None)
+        if name == "b":
+            break
+        if name == "table":
+            break
+        if name == "br":
+            continue
+        if hasattr(sibling, "get_text"):
+            chunk = clean(sibling.get_text(" ", strip=True))
+            if chunk:
+                lines.append(chunk)
+        elif isinstance(sibling, str):
+            chunk = clean(sibling)
+            if chunk:
+                lines.append(chunk)
+    return lines
+
+
+def parse_detail_prices(text: str) -> list[Price]:
+    """Preise aus Kursdetail-Fließtext oder ``bs_spreis``-HTML."""
+    if not text:
+        return []
+    if "bs_tr" in text or "bs_tt1" in text:
+        return parse_prices(text)
+    lowered = clean(text).lower()
+    if "entgeltfrei" in lowered or "free of charge" in lowered:
+        return [Price(group="alle", price_eur=0.0)]
+    prices: list[Price] = []
+    for line in _lines_after_label_from_text(text):
+        prices.extend(_parse_detail_price_line(line))
+    if prices:
+        return prices
+    flat = clean(text)
+    return _parse_detail_price_line(flat)
+
+
+def _lines_after_label_from_text(text: str) -> list[str]:
+    if "<br" in text.lower():
+        return [clean(part) for part in re.split(r"<br\s*/?>", text, flags=re.I) if clean(part)]
+    return [clean(ln) for ln in re.split(r"\s*\n\s*", text) if clean(ln)]
+
+
+def _parse_detail_price_line(line: str) -> list[Price]:
+    line = clean(line)
+    if not line:
+        return []
+    match = _DETAIL_PRICE_LINE.match(line)
+    if match:
+        return [
+            Price(
+                group=clean(match.group(2)),
+                price_eur=_parse_amount(match.group(1)),
+            )
+        ]
+    prices: list[Price] = []
+    for found in _DETAIL_PRICE_MULTI.finditer(line):
+        prices.append(
+            Price(
+                group=clean(found.group(2)),
+                price_eur=_parse_amount(found.group(1)),
+            )
+        )
+    return prices
+
+
 def _text_after_label(tag) -> str:
     parts: list[str] = []
     for sibling in tag.next_siblings:
@@ -460,23 +539,12 @@ def parse_course_detail(
                 if text:
                     locations.append({"name": text})
         elif label == "Preise:":
-            text = _text_after_label(strong)
-            for line in text.split("\n"):
-                line = clean(line)
-                if not line:
-                    continue
-                match = re.match(
-                    r"([\d.,]+)\s*EUR\s*(?:für|fuer)?\s*(.+)", line, re.IGNORECASE
-                )
-                if match:
-                    prices.append(
-                        Price(
-                            group=clean(match.group(2)),
-                            price_eur=_parse_amount(match.group(1)),
-                        )
-                    )
-            if not prices and "entgeltfrei" in text.lower():
-                prices = [Price(group="alle", price_eur=0.0)]
+            lines = _lines_after_label(strong)
+            for line in lines:
+                prices.extend(_parse_detail_price_line(line))
+            if not prices:
+                text = _text_after_label(strong)
+                prices = parse_detail_prices(text)
 
     for table in content.select("table.bs_kurse, table"):
         for tr in table.select("tr"):

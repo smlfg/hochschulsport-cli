@@ -60,6 +60,22 @@ def test_kurssuche_js_loads():
     assert len(courses) == 404
 
 
+def test_parse_course_detail_13600_prices():
+    course = parse_course_detail(
+        _read("course_13600_stuttgart.html"),
+        "https://anmeldung.hochschulsport.uni-stuttgart.de",
+        detail_url="https://anmeldung.hochschulsport.uni-stuttgart.de/cgi/webpage.cgi?kursinfo=76DC9CFAE3",
+    )
+    assert course is not None
+    assert course.course_nr == "13600"
+    assert [p.group for p in course.prices] == [
+        "Studierende",
+        "Beschäftigte",
+        "Externe",
+    ]
+    assert [p.price_eur for p in course.prices] == [15.0, 20.0, 30.0]
+
+
 def test_parse_course_detail_50100():
     course = parse_course_detail(
         _read("course_50100_stuttgart.html"),
