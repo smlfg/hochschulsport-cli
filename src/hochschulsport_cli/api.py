@@ -6,8 +6,9 @@ import os
 from datetime import datetime, timezone
 from typing import Any
 
-from .errors import CliError
+from .errors import CliError, ParseError
 from .http_client import HttpClient
+from .models import Sport
 from .parser import parse_search_data, parse_sports
 from .portals import (
     DEFAULT_PORTAL_ID,
@@ -70,3 +71,49 @@ def check_portal(
 def cmd_portals(client: HttpClient) -> dict[str, Any]:
     items = [check_portal(p, client, portal_id=p.id) for p in PORTALS]
     return {"portals": items, "count": len(items), "default": DEFAULT_PORTAL_ID}
+
+
+def _attach_sport_counts(sports: list[Sport], data: dict[str, Any]) -> list[Sport]:
+    counts: dict[str, int] = {}
+    for raw in data.get("kurse") or []:
+        if isinstance(raw, list) and len(raw) > 2:
+            name = str(raw[2])
+            counts[name] = counts.get(name, 0) + 1
+    for sport in sports:
+        sport.course_count = counts.get(sport.name, 0)
+    return sports
+
+
+def _load_index_html(portal: Portal, client: HttpClient) -> str:
+    url = portal.url(f"{OFFERTS_PATH}/index.html")
+    return client.get_text(url, portal=portal.id)
+
+
+def _load_search_data(portal: Portal, client: HttpClient) -> dict[str, Any]:
+    url = portal.url(SEARCH_JS_PATH)
+    text = client.get_json_like(url, portal=portal.id)
+    return parse_search_data(text)
+
+
+def cmd_sports(
+    portal: Portal,
+    client: HttpClient,
+    *,
+    query: str | None = None,
+) -> dict[str, Any]:
+    index_html = _load_index_html(portal, client)
+    sports = parse_sports(index_html)
+    try:
+        data = _load_search_data(portal, client)
+        sports = _attach_sport_counts(sports, data)
+    except ParseError:
+        pass
+    if query:
+        q = query.casefold()
+        sports = [s for s in sports if q in s.name.casefold()]
+    return {
+        "portal": portal.id,
+        "query": query,
+        "sports": [s.to_dict() for s in sports],
+        "count": len(sports),
+    }

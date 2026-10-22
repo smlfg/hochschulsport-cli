@@ -8,7 +8,7 @@ import sys
 from typing import Any, Callable
 
 from . import __version__
-from .api import cmd_portals, portal_from_env
+from .api import cmd_portals, cmd_sports, portal_from_env
 from .errors import CliError, EXIT_OK
 from .http_client import HttpClient
 
@@ -40,6 +40,13 @@ def _payload_to_text(payload: dict[str, Any]) -> str:
             lines.append(
                 f"  {p.get('id')}: {p.get('name')} [{flag}] "
                 f"sports={p.get('sports')} courses={p.get('courses')}"
+            )
+        return "\n".join(lines) + "\n"
+    if "sports" in payload:
+        lines = [f"Sportarten ({payload.get('count', 0)}) – Portal {payload.get('portal')}"]
+        for s in payload.get("sports") or []:
+            lines.append(
+                f"  {s.get('name')} ({s.get('course_count', 0)} Kurse) → {s.get('slug')}"
             )
         return "\n".join(lines) + "\n"
     return json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
@@ -81,6 +88,9 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("portals", help="Bekannte Portale mit Erreichbarkeit")
 
+    sports_p = sub.add_parser("sports", help="Sportarten des Portals")
+    sports_p.add_argument("--query", metavar="TEXT", help="Filter (Substring, case-insensitive)")
+
     try:
         args, unknown = root.parse_known_args(argv)
     except SystemExit:
@@ -97,8 +107,15 @@ def main(argv: list[str] | None = None) -> int:
     timeout = args.timeout if args.timeout is not None else 20.0
     client = HttpClient(timeout=timeout)
 
+    from .portals import resolve_portal
+
+    portal = resolve_portal(args.portal) if args.portal else portal_from_env()
+
     if args.command == "portals":
         return _run(cmd_portals, as_json, client=client)
+
+    if args.command == "sports":
+        return _run(cmd_sports, as_json, portal=portal, client=client, query=args.query)
 
     return _fail(CliError(f"Unbekannter Befehl: {args.command}"), as_json)
 
