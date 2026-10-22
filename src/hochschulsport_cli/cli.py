@@ -19,7 +19,7 @@ from .api import (
     cmd_watch,
     portal_from_env,
 )
-from .errors import CliError, EXIT_OK
+from .errors import CliError, EXIT_OK, EXIT_USAGE, UsageError
 from .http_client import HttpClient
 
 
@@ -35,7 +35,7 @@ def _emit(payload: dict[str, Any], as_json: bool, text: str | None = None) -> No
 def _fail(exc: CliError, as_json: bool) -> int:
     payload = exc.to_dict()
     if as_json:
-        sys.stdout.write(json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
+        sys.stderr.write(json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
     else:
         err = payload["error"]
         sys.stderr.write(f"[{err['kind']}] {err['message']}\n")
@@ -116,21 +116,69 @@ def _extract_globals(argv: list[str]) -> tuple[list[str], bool, str | None, floa
             portal = argv[i + 1]
             i += 1
         elif arg == "--timeout" and i + 1 < len(argv):
-            timeout = float(argv[i + 1])
+            try:
+                timeout = float(argv[i + 1])
+            except ValueError:
+                timeout = float("nan")
             i += 1
         elif arg.startswith("--portal="):
             portal = arg.split("=", 1)[1]
         elif arg.startswith("--timeout="):
-            timeout = float(arg.split("=", 1)[1])
+            try:
+                timeout = float(arg.split("=", 1)[1])
+            except ValueError:
+                timeout = float("nan")
         else:
             rest.append(arg)
         i += 1
     return rest, as_json, portal, timeout
 
 
+def _resolve_portal_safe(
+    portal_raw: str | None, as_json: bool, use_default: bool
+) -> Portal | int:
+    from .portals import Portal, resolve_portal
+
+    try:
+        if portal_raw:
+            return resolve_portal(portal_raw)
+        if use_default:
+            return portal_from_env()
+    except CliError as exc:
+        return _fail(exc, as_json)
+    return resolve_portal(None)
+
+
 def main(argv: list[str] | None = None) -> int:
+    try:
+        return _main(argv)
+    except CliError as exc:
+        # Fallback, falls ein Befehl eine Exception nicht abfängt.
+        raw = argv if argv is not None else sys.argv[1:]
+        _, as_json, _, _ = _extract_globals(list(raw))
+        return _fail(exc, as_json)
+    except Exception:
+        raw = argv if argv is not None else sys.argv[1:]
+        _, as_json, _, _ = _extract_globals(list(raw))
+        return _fail(
+            CliError(
+                "Interner Fehler.",
+                kind="internal",
+                exit_code=EXIT_USAGE,
+            ),
+            as_json,
+        )
+
+
+def _main(argv: list[str] | None = None) -> int:
     raw_argv = argv if argv is not None else sys.argv[1:]
     argv, as_json, portal_arg, timeout_arg = _extract_globals(list(raw_argv))
+
+    if timeout_arg is not None and timeout_arg != timeout_arg:  # NaN
+        return _fail(
+            UsageError("Ungültiger Wert für --timeout (Zahl in Sekunden erwartet)."),
+            as_json,
+        )
 
     root = argparse.ArgumentParser(prog="hsport", description="Hochschulsport Buchsys CLI")
     root.add_argument("--version", action="version", version=f"hsport {__version__}")
@@ -187,10 +235,13 @@ def main(argv: list[str] | None = None) -> int:
     timeout = timeout_arg if timeout_arg is not None else (args.timeout if args.timeout is not None else 20.0)
     client = HttpClient(timeout=timeout)
 
-    from .portals import resolve_portal
-
     portal_raw = portal_arg if portal_arg is not None else args.portal
-    portal = resolve_portal(portal_raw) if portal_raw else portal_from_env()
+    portal_or_code = _resolve_portal_safe(
+        portal_raw, as_json, use_default=portal_raw is None
+    )
+    if isinstance(portal_or_code, int):
+        return portal_or_code
+    portal = portal_or_code
 
     if args.command == "portals":
         return _run(cmd_portals, as_json, client=client)

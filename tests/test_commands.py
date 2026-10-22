@@ -110,11 +110,23 @@ class TestCliErrors:
 
     def test_courses_day_json_cli(self, capsys):
         code = main(["courses", "--day", "xyz", "--json"])
-        out = capsys.readouterr().out
+        captured = capsys.readouterr()
         assert code == 1
-        data = json.loads(out)
+        assert captured.out == ""
+        data = json.loads(captured.err)
         assert data["error"]["kind"] == "usage"
         assert data["error"]["code"] == 1
+
+    def test_invalid_portal_json_no_traceback(self, capsys):
+        code = main(["--portal", "nichtexistiert", "courses", "--query", "yoga", "--json"])
+        captured = capsys.readouterr()
+        assert code == 1
+        assert captured.out == ""
+        assert "Traceback" not in captured.err
+        data = json.loads(captured.err)
+        assert data["error"]["kind"] == "usage"
+        assert data["error"]["code"] == 1
+        assert "Portal" in data["error"]["message"] or "Host" in data["error"]["message"]
 
 
 def test_no_network_subprocess():

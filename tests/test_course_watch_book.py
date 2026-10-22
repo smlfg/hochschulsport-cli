@@ -41,9 +41,9 @@ class TestCourse:
 
     def test_course_unknown_json_cli(self, fixture_client, capsys):
         code = main(["course", "99999", "--json"])
-        out = capsys.readouterr().out
+        captured = capsys.readouterr()
         assert code == 1
-        data = json.loads(out)
+        data = json.loads(captured.err)
         assert data["error"]["kind"] == "usage"
         assert "99999" in data["error"]["message"]
 
@@ -130,10 +130,11 @@ class TestBook:
         code = main(["book", "50100", "--confirm", "--json"])
         out = capsys.readouterr()
         assert code == 1
-        data = json.loads(out.out)
+        data = json.loads(out.err)
         assert data["error"]["kind"] == "usage"
         assert TEST_SECRET not in out.out
         assert TEST_SECRET not in out.err
+        assert out.out == ""
 
 
 class TestErrors:
