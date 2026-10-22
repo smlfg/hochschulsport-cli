@@ -1,0 +1,133 @@
+"""CLI-Befehle mit Fixture-HTTP (kein Netzwerk)."""
+
+from __future__ import annotations
+
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+
+from hochschulsport_cli import api
+from hochschulsport_cli.cli import main
+from hochschulsport_cli.errors import NetworkError, UsageError
+from hochschulsport_cli.portals import Portal, resolve_portal
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+class TestPortals:
+    def test_portals_json_structure(self, fixture_client):
+        payload = api.cmd_portals(fixture_client)
+        assert payload["count"] == 7
+        assert payload["default"] == "stuttgart"
+        ids = {p["id"] for p in payload["portals"]}
+        assert ids == {
+            "stuttgart",
+            "hamburg",
+            "bremen",
+            "paderborn",
+            "chemnitz",
+            "fu-berlin",
+            "hsdemo",
+        }
+        stuttgart = next(p for p in payload["portals"] if p["id"] == "stuttgart")
+        assert stuttgart["reachable"] is True
+        assert stuttgart["sports"] == 168
+        assert stuttgart["courses"] == 404
+
+
+class TestSports:
+    def test_sports_count(self, fixture_client):
+        portal = resolve_portal("stuttgart")
+        payload = api.cmd_sports(portal, fixture_client)
+        assert payload["count"] == 168
+
+    def test_sports_query_bogen(self, fixture_client):
+        portal = resolve_portal("stuttgart")
+        payload = api.cmd_sports(portal, fixture_client, query="bogen")
+        assert payload["count"] == 1
+        assert payload["sports"][0]["name"] == "Bogensport"
+
+
+class TestCourses:
+    def test_courses_bogensport(self, fixture_client):
+        portal = resolve_portal("stuttgart")
+        payload = api.cmd_courses(portal, fixture_client, sport="Bogensport")
+        assert payload["count"] == 3
+        nrs = {c["course_nr"] for c in payload["courses"]}
+        assert nrs == {"50100", "50101", "50102"}
+
+    def test_courses_query_schwimmen(self, fixture_client):
+        portal = resolve_portal("stuttgart")
+        payload = api.cmd_courses(portal, fixture_client, query="Schwimmen")
+        assert payload["count"] >= 1
+        for course in payload["courses"]:
+            blob = f"{course['title']} {course['sport']}".casefold()
+            assert "schwimmen" in blob
+
+    def test_courses_day_mi(self, fixture_client):
+        portal = resolve_portal("stuttgart")
+        payload = api.cmd_courses(portal, fixture_client, query="a", day="Mi")
+        assert payload["count"] >= 1
+        assert all(c["day"] == "Mi" for c in payload["courses"])
+
+    def test_courses_free_only_bogensport(self, fixture_client):
+        portal = resolve_portal("stuttgart")
+        payload = api.cmd_courses(
+            portal, fixture_client, sport="Bogensport", free_only=True
+        )
+        assert all(c["booking_status"] == "buchbar" for c in payload["courses"])
+        assert payload["count"] == 1
+
+    def test_unknown_sport_usage(self, fixture_client):
+        portal = resolve_portal("stuttgart")
+        with pytest.raises(UsageError):
+            api.cmd_courses(portal, fixture_client, sport="NichtExistiert")
+
+    def test_invalid_day(self, fixture_client):
+        portal = resolve_portal("stuttgart")
+        with pytest.raises(UsageError):
+            api.cmd_courses(portal, fixture_client, query="yoga", day="xyz")
+
+    def test_empty_query_result(self, fixture_client):
+        portal = resolve_portal("stuttgart")
+        payload = api.cmd_courses(portal, fixture_client, query="zzzznoop")
+        assert payload["count"] == 0
+
+
+class TestCliErrors:
+    def test_invalid_portal_usage(self):
+        with pytest.raises(UsageError):
+            resolve_portal("://bad")
+
+    def test_network_error_exit(self, fixture_client):
+        portal = Portal(id="x", name="x", base_url="http://127.0.0.1:9")
+        with pytest.raises(NetworkError) as exc:
+            api._load_index_html(portal, fixture_client)
+        assert exc.value.exit_code == 3
+
+    def test_courses_day_json_cli(self, capsys):
+        code = main(["courses", "--day", "xyz", "--json"])
+        out = capsys.readouterr().out
+        assert code == 1
+        data = json.loads(out)
+        assert data["error"]["kind"] == "usage"
+        assert data["error"]["code"] == 1
+
+
+def test_no_network_subprocess():
+    """Sandbox: Subprozess darf kein DNS nach außen."""
+    env = {
+        **dict(__import__("os").environ),
+        "PYTHONPATH": str(ROOT / "tests" / "harness"),
+        "ACCEPTANCE_SANDBOX": "1",
+    }
+    proc = subprocess.run(
+        [sys.executable, "-c", "import socket; socket.getaddrinfo('example.com', 443)"],
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode != 0
