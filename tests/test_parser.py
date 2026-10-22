@@ -7,6 +7,7 @@ from pathlib import Path
 from hochschulsport_cli.errors import ParseError
 from hochschulsport_cli.parser import (
     courses_from_search_data,
+    parse_course_detail,
     parse_course_rows,
     parse_search_data,
     parse_sports,
@@ -57,6 +58,20 @@ def test_kurssuche_js_loads():
     data = parse_search_data(js)
     courses = courses_from_search_data(data)
     assert len(courses) == 404
+
+
+def test_parse_course_detail_50100():
+    course = parse_course_detail(
+        _read("course_50100_stuttgart.html"),
+        "https://anmeldung.hochschulsport.uni-stuttgart.de",
+        detail_url="https://anmeldung.hochschulsport.uni-stuttgart.de/cgi/webpage.cgi?kursinfo=76DC115FEF",
+    )
+    assert course is not None
+    assert course.course_nr == "50100"
+    assert course.title == "Bogensport für Fortgeschrittene"
+    assert course.period == "17.10.2026-10.04.2027"
+    assert len(course.sessions) >= 1
+    assert course.locations[0]["name"].startswith("Außenanlage")
 
 
 def test_kurssuche_invalid_raises():
