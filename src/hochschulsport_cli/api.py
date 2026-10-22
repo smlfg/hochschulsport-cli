@@ -89,18 +89,26 @@ def _course_matches_query(course: Course, query: str) -> bool:
     return q in hay
 
 
+def _course_matches_sport(course: Course, sport_filter: str) -> bool:
+    needle = sport_filter.casefold()
+    return needle in (course.sport or "").casefold()
+
+
 def _apply_course_filters(
     courses: list[Course],
     *,
     query: str | None,
     day: str | None,
     free_only: bool,
+    sport_filter: str | None = None,
 ) -> list[Course]:
     out: list[Course] = []
     for course in courses:
         if day is not None and course.day != day:
             continue
         if free_only and course.booking_status != STATUS_BOOKABLE:
+            continue
+        if sport_filter is not None and not _course_matches_sport(course, sport_filter):
             continue
         if query is not None and not _course_matches_query(course, query):
             continue
@@ -248,30 +256,38 @@ def cmd_courses(
     client: HttpClient,
     *,
     sport: str | None = None,
+    sport_filter: str | None = None,
     query: str | None = None,
     day: str | None = None,
     free_only: bool = False,
 ) -> dict[str, Any]:
     if sport and query:
         raise UsageError("Nur eine von Sportname oder --query angeben.")
-    if not sport and not query:
-        raise UsageError("Sportname oder --query ist erforderlich.")
+    if not sport and not query and not sport_filter:
+        raise UsageError("Sportname, --sport oder --query ist erforderlich.")
 
     day_norm = normalize_day(day)
 
     if sport:
         courses = _load_sport_page(portal, client, sport)
         courses = _apply_course_filters(
-            courses, query=None, day=day_norm, free_only=free_only
+            courses,
+            query=None,
+            day=day_norm,
+            free_only=free_only,
+            sport_filter=sport_filter,
         )
     else:
-        assert query is not None
         data = _load_search_data(portal, client)
         courses = courses_from_search_data(data, portal.base_url)
         for course in courses:
             course.time = _normalize_time(course.time)
         courses = _apply_course_filters(
-            courses, query=query, day=day_norm, free_only=False
+            courses,
+            query=query,
+            day=day_norm,
+            free_only=False,
+            sport_filter=sport_filter,
         )
         if free_only:
             courses = _enrich_status_from_sport_pages(portal, client, courses)
@@ -281,7 +297,11 @@ def cmd_courses(
         "portal": portal.id,
         "sport": sport,
         "query": query,
-        "filters": {"day": day_norm, "free_only": free_only},
+        "filters": {
+            "day": day_norm,
+            "free_only": free_only,
+            "sport": sport_filter,
+        },
         "courses": [c.to_dict() for c in courses],
         "count": len(courses),
     }

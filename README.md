@@ -18,7 +18,7 @@ Console-Script: `hsport`
 
 | Option | Beschreibung |
 |--------|----------------|
-| `--json` | Ein JSON-Objekt auf stdout |
+| `--json` | Erfolg: ein JSON-Objekt auf stdout; Fehler: JSON auf stderr |
 | `--portal URL` | Basis-URL oder Kurz-ID (`stuttgart`, `buchsys.de/bremen`, …) |
 | `--timeout SEK` | HTTP-Timeout (Default: 20) |
 
@@ -32,8 +32,13 @@ Umgebung: `HS_PORTAL` / `HS_BASE_URL` (Default-Portal), `XDG_CONFIG_HOME`.
 hsport portals --json
 hsport sports --query yoga --json
 hsport courses Bogensport --day Mo --free-only --json
-hsport courses --query "Schwimmen" --json
+hsport courses --sport yoga --json
+hsport courses --query "Schwimmen" --sport schwimm --json
 ```
+
+`courses` verlangt einen **positionalen Sportnamen** (exakte Sportseite), `--sport`
+(Substring-Filter auf die Sportart, case-insensitive) oder `--query`. Positionaler
+Sportname und `--query` schließen sich aus; `--sport` lässt sich mit `--query` kombinieren.
 
 ## `hsport course <kursnr>`
 

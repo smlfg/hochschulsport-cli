@@ -59,6 +59,24 @@ class TestCourses:
         nrs = {c["course_nr"] for c in payload["courses"]}
         assert nrs == {"50100", "50101", "50102"}
 
+    def test_courses_sport_filter_yoga(self, fixture_client):
+        portal = resolve_portal("stuttgart")
+        payload = api.cmd_courses(portal, fixture_client, sport_filter="yoga")
+        assert payload["count"] >= 1
+        for course in payload["courses"]:
+            assert "yoga" in course["sport"].casefold()
+
+    def test_courses_query_and_sport_filter(self, fixture_client):
+        portal = resolve_portal("stuttgart")
+        payload = api.cmd_courses(
+            portal, fixture_client, query="Training", sport_filter="yoga"
+        )
+        assert payload["count"] >= 1
+        for course in payload["courses"]:
+            assert "yoga" in course["sport"].casefold()
+            blob = f"{course['title']} {course['sport']}".casefold()
+            assert "training" in blob
+
     def test_courses_query_schwimmen(self, fixture_client):
         portal = resolve_portal("stuttgart")
         payload = api.cmd_courses(portal, fixture_client, query="Schwimmen")

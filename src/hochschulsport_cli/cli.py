@@ -63,8 +63,11 @@ def _payload_to_text(payload: dict[str, Any]) -> str:
         lines = [
             f"Kurse ({payload.get('count', 0)}) – Portal {payload.get('portal')}"
         ]
+        sport_filter = (payload.get("filters") or {}).get("sport")
         if payload.get("sport"):
             lines[0] += f", Sport {payload['sport']}"
+        elif sport_filter:
+            lines[0] += f", Sportfilter „{sport_filter}“"
         if payload.get("query"):
             lines[0] += f", Suche „{payload['query']}“"
         for c in payload.get("courses") or []:
@@ -192,6 +195,12 @@ def _main(argv: list[str] | None = None) -> int:
 
     courses_p = sub.add_parser("courses", help="Kurse suchen")
     courses_p.add_argument("sport", nargs="?", metavar="SPORT", help="Exakter Sportname")
+    courses_p.add_argument(
+        "--sport",
+        metavar="NAME",
+        dest="sport_filter",
+        help="Filter auf Sportart (Substring, case-insensitive)",
+    )
     courses_p.add_argument("--query", metavar="TEXT", help="Suche in Kursfeldern")
     courses_p.add_argument("--day", metavar="TAG", help="Wochentag Mo–So")
     courses_p.add_argument(
@@ -256,6 +265,7 @@ def _main(argv: list[str] | None = None) -> int:
             portal=portal,
             client=client,
             sport=args.sport,
+            sport_filter=args.sport_filter,
             query=args.query,
             day=args.day,
             free_only=args.free_only,
