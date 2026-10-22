@@ -3,13 +3,20 @@
 from __future__ import annotations
 
 import os
+import re
 from datetime import datetime, timezone
 from typing import Any
 
-from .errors import CliError, ParseError
+from .errors import CliError, ParseError, UsageError
 from .http_client import HttpClient
-from .models import Sport
-from .parser import parse_search_data, parse_sports
+from .models import DAY_ALIASES, DAYS, STATUS_BOOKABLE, Course, Sport
+from .parser import (
+    courses_from_search_data,
+    parse_course_rows,
+    parse_search_data,
+    parse_sports,
+    sport_filename,
+)
 from .portals import (
     DEFAULT_PORTAL_ID,
     OFFERTS_PATH,
@@ -23,6 +30,66 @@ from .portals import (
 def portal_from_env() -> Portal:
     raw = os.environ.get("HS_PORTAL") or os.environ.get("HS_BASE_URL")
     return resolve_portal(raw)
+
+
+def normalize_day(raw: str | None) -> str | None:
+    if raw is None:
+        return None
+    key = raw.strip().lower()
+    if not key:
+        return None
+    day = DAY_ALIASES.get(key)
+    if day is None and len(key) == 2:
+        candidate = key[:2].title()
+        if candidate in DAYS:
+            day = candidate
+    if day is None:
+        raise UsageError(
+            f"Ungültiger Wochentag: {raw!r}. Erlaubt: {', '.join(DAYS)}."
+        )
+    return day
+
+
+def _normalize_time(value: str | None) -> str | None:
+    if not value:
+        return None
+    return re.sub(r"\s*-\s*", "-", value.strip())
+
+
+def _course_matches_query(course: Course, query: str) -> bool:
+    q = query.casefold()
+    hay = " ".join(
+        filter(
+            None,
+            [
+                course.course_nr,
+                course.title,
+                course.sport,
+                course.location or "",
+                course.instructor or "",
+            ],
+        )
+    ).casefold()
+    return q in hay
+
+
+def _apply_course_filters(
+    courses: list[Course],
+    *,
+    query: str | None,
+    day: str | None,
+    free_only: bool,
+) -> list[Course]:
+    out: list[Course] = []
+    for course in courses:
+        if day is not None and course.day != day:
+            continue
+        if free_only and course.booking_status != STATUS_BOOKABLE:
+            continue
+        if query is not None and not _course_matches_query(course, query):
+            continue
+        out.append(course)
+    return out
 
 
 def _portal_is_healthy(html: str, js_text: str | None) -> bool:
@@ -116,4 +183,89 @@ def cmd_sports(
         "query": query,
         "sports": [s.to_dict() for s in sports],
         "count": len(sports),
+    }
+
+
+def _load_sport_page(
+    portal: Portal, client: HttpClient, sport_name: str
+) -> list[Course]:
+    slug = sport_filename(sport_name)
+    url = portal.url(f"{OFFERTS_PATH}/{slug}")
+    html = client.get_text(url, portal=portal.id)
+    courses = parse_course_rows(html, portal.base_url, sport_name=sport_name)
+    if not courses and sport_name:
+        raise UsageError(f"Unbekannte Sportart: {sport_name!r}.")
+    for course in courses:
+        course.time = _normalize_time(course.time)
+    return courses
+
+
+def _enrich_status_from_sport_pages(
+    portal: Portal,
+    client: HttpClient,
+    courses: list[Course],
+) -> list[Course]:
+    by_sport: dict[str, list[Course]] = {}
+    for course in courses:
+        if not course.sport:
+            continue
+        by_sport.setdefault(course.sport, []).append(course)
+    status_map: dict[str, str] = {}
+    for sport_name in by_sport:
+        try:
+            rows = _load_sport_page(portal, client, sport_name)
+        except UsageError:
+            continue
+        for row in rows:
+            status_map[row.course_nr] = row.booking_status
+    enriched: list[Course] = []
+    for course in courses:
+        status = status_map.get(course.course_nr)
+        if status is not None:
+            course.booking_status = status
+        enriched.append(course)
+    return enriched
+
+
+def cmd_courses(
+    portal: Portal,
+    client: HttpClient,
+    *,
+    sport: str | None = None,
+    query: str | None = None,
+    day: str | None = None,
+    free_only: bool = False,
+) -> dict[str, Any]:
+    if sport and query:
+        raise UsageError("Nur eine von Sportname oder --query angeben.")
+    if not sport and not query:
+        raise UsageError("Sportname oder --query ist erforderlich.")
+
+    day_norm = normalize_day(day)
+
+    if sport:
+        courses = _load_sport_page(portal, client, sport)
+        courses = _apply_course_filters(
+            courses, query=None, day=day_norm, free_only=free_only
+        )
+    else:
+        assert query is not None
+        data = _load_search_data(portal, client)
+        courses = courses_from_search_data(data, portal.base_url)
+        for course in courses:
+            course.time = _normalize_time(course.time)
+        courses = _apply_course_filters(
+            courses, query=query, day=day_norm, free_only=False
+        )
+        if free_only:
+            courses = _enrich_status_from_sport_pages(portal, client, courses)
+            courses = [c for c in courses if c.booking_status == STATUS_BOOKABLE]
+
+    return {
+        "portal": portal.id,
+        "sport": sport,
+        "query": query,
+        "filters": {"day": day_norm, "free_only": free_only},
+        "courses": [c.to_dict() for c in courses],
+        "count": len(courses),
     }

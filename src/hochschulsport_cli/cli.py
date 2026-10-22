@@ -8,7 +8,7 @@ import sys
 from typing import Any, Callable
 
 from . import __version__
-from .api import cmd_portals, cmd_sports, portal_from_env
+from .api import cmd_courses, cmd_portals, cmd_sports, portal_from_env
 from .errors import CliError, EXIT_OK
 from .http_client import HttpClient
 
@@ -47,6 +47,20 @@ def _payload_to_text(payload: dict[str, Any]) -> str:
         for s in payload.get("sports") or []:
             lines.append(
                 f"  {s.get('name')} ({s.get('course_count', 0)} Kurse) → {s.get('slug')}"
+            )
+        return "\n".join(lines) + "\n"
+    if "courses" in payload:
+        lines = [
+            f"Kurse ({payload.get('count', 0)}) – Portal {payload.get('portal')}"
+        ]
+        if payload.get("sport"):
+            lines[0] += f", Sport {payload['sport']}"
+        if payload.get("query"):
+            lines[0] += f", Suche „{payload['query']}“"
+        for c in payload.get("courses") or []:
+            lines.append(
+                f"  {c.get('course_nr')}: {c.get('title')} | {c.get('day')} "
+                f"{c.get('time')} | {c.get('booking_status')}"
             )
         return "\n".join(lines) + "\n"
     return json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
@@ -91,6 +105,16 @@ def main(argv: list[str] | None = None) -> int:
     sports_p = sub.add_parser("sports", help="Sportarten des Portals")
     sports_p.add_argument("--query", metavar="TEXT", help="Filter (Substring, case-insensitive)")
 
+    courses_p = sub.add_parser("courses", help="Kurse suchen")
+    courses_p.add_argument("sport", nargs="?", metavar="SPORT", help="Exakter Sportname")
+    courses_p.add_argument("--query", metavar="TEXT", help="Suche in Kursfeldern")
+    courses_p.add_argument("--day", metavar="TAG", help="Wochentag Mo–So")
+    courses_p.add_argument(
+        "--free-only",
+        action="store_true",
+        help="Nur buchbare Kurse (Status buchbar)",
+    )
+
     try:
         args, unknown = root.parse_known_args(argv)
     except SystemExit:
@@ -116,6 +140,18 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "sports":
         return _run(cmd_sports, as_json, portal=portal, client=client, query=args.query)
+
+    if args.command == "courses":
+        return _run(
+            cmd_courses,
+            as_json,
+            portal=portal,
+            client=client,
+            sport=args.sport,
+            query=args.query,
+            day=args.day,
+            free_only=args.free_only,
+        )
 
     return _fail(CliError(f"Unbekannter Befehl: {args.command}"), as_json)
 
