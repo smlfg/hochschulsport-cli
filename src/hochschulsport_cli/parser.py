@@ -85,6 +85,16 @@ def clean(text: str | None) -> str:
     return re.sub(r"\s+", " ", value).strip()
 
 
+_TAG_RE = re.compile(r"<[^>]+>")
+
+
+def clean_html(text: str | None) -> str:
+    """Wie :func:`clean`, entfernt aber zusätzlich HTML-Tags (z. B. ``<wbr />``)."""
+    if not text:
+        return ""
+    return clean(_TAG_RE.sub("", text))
+
+
 def _soup(markup: str) -> BeautifulSoup:
     try:
         return BeautifulSoup(markup, "lxml")
@@ -319,8 +329,8 @@ def courses_from_search_data(data: dict[str, Any], base_url: str = "") -> list[C
         if not isinstance(raw, list) or len(raw) < 13:
             continue
         course_nr = str(raw[1])
-        sport = clean(raw[2])
-        title_part = clean(raw[3])
+        sport = clean_html(raw[2])
+        title_part = clean_html(raw[3])
         day = None
         time = None
         location = None
@@ -358,8 +368,8 @@ def courses_from_search_data(data: dict[str, Any], base_url: str = "") -> list[C
                 day=day,
                 time=time,
                 location=location,
-                instructor=clean(raw[8]) or None,
-                period=clean(raw[7]) or None,
+                instructor=clean_html(raw[8]) or None,
+                period=clean_html(raw[7]) or None,
                 prices=prices,
                 booking_status=status,
                 detail_url=None,

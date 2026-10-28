@@ -224,17 +224,24 @@ def _load_sport_page(
     return courses
 
 
-def _enrich_status_from_sport_pages(
+def _enrich_from_sport_pages(
     portal: Portal,
     client: HttpClient,
     courses: list[Course],
 ) -> list[Course]:
+    """Status und Detail-URL aus den jeweiligen Sportseiten ergänzen.
+
+    ``kurssuche.js`` enthält nur ein buchbar-Ja/Nein und keine Detail-Hex-ID.
+    Die Sportseiten liefern beides pro Kursnummer – auch für Kurse auf
+    Warteliste, die in der Suche sonst fälschlich als nicht buchbar gelten.
+    """
     by_sport: dict[str, list[Course]] = {}
     for course in courses:
         if not course.sport:
             continue
         by_sport.setdefault(course.sport, []).append(course)
     status_map: dict[str, str] = {}
+    detail_map: dict[str, str] = {}
     for sport_name in by_sport:
         try:
             rows = _load_sport_page(portal, client, sport_name)
@@ -242,11 +249,15 @@ def _enrich_status_from_sport_pages(
             continue
         for row in rows:
             status_map[row.course_nr] = row.booking_status
+            if row.detail_url:
+                detail_map[row.course_nr] = row.detail_url
     enriched: list[Course] = []
     for course in courses:
         status = status_map.get(course.course_nr)
         if status is not None:
             course.booking_status = status
+        if course.detail_url is None:
+            course.detail_url = detail_map.get(course.course_nr)
         enriched.append(course)
     return enriched
 
@@ -289,8 +300,8 @@ def cmd_courses(
             free_only=False,
             sport_filter=sport_filter,
         )
+        courses = _enrich_from_sport_pages(portal, client, courses)
         if free_only:
-            courses = _enrich_status_from_sport_pages(portal, client, courses)
             courses = [c for c in courses if c.booking_status == STATUS_BOOKABLE]
 
     return {
