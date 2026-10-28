@@ -170,21 +170,41 @@ class TestCourses:
 
 
 class TestCliExitCodes:
-    def test_version_exit_zero(self, capsys):
-        code = main(["--version"])
+    @pytest.mark.parametrize("argv", [["--version"], ["--version", "--json"]])
+    def test_version_exit_zero(self, argv, capsys):
+        code = main(argv)
         captured = capsys.readouterr()
         assert code == 0
         assert "hsport" in captured.out
 
-    def test_help_exit_zero(self, capsys):
-        code = main(["--help"])
+    @pytest.mark.parametrize("argv", [["--help"], ["--help", "--json"]])
+    def test_help_exit_zero(self, argv, capsys):
+        code = main(argv)
         captured = capsys.readouterr()
         assert code == 0
         assert "usage" in captured.out.lower()
 
-    def test_unknown_command_nonzero(self, capsys):
-        code = main(["does-not-exist"])
-        assert code != 0
+    @pytest.mark.parametrize(
+        "argv",
+        [
+            ["does-not-exist"],
+            ["does-not-exist", "--json"],
+            [],
+            ["--json"],
+            ["courses", "Bogensport", "--day"],
+            ["courses", "Bogensport", "--day", "--json"],
+        ],
+    )
+    def test_argparse_errors_exit_usage(self, argv, capsys):
+        code = main(argv)
+        captured = capsys.readouterr()
+        assert code == 1
+        if "--json" in argv:
+            assert captured.out == ""
+            assert "Traceback" not in captured.err
+            data = json.loads(captured.err)
+            assert data["error"]["kind"] == "usage"
+            assert data["error"]["code"] == 1
 
 
 class TestCliErrors:
