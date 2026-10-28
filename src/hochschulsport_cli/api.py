@@ -20,6 +20,7 @@ from .booking import (
 )
 from .course_resolve import resolve_course
 from .parser import (
+    clean_html,
     courses_from_search_data,
     parse_course_rows,
     parse_search_data,
@@ -164,14 +165,21 @@ def cmd_portals(client: HttpClient) -> dict[str, Any]:
     return {"portals": items, "count": len(items), "default": DEFAULT_PORTAL_ID}
 
 
+def _sport_name_key(value: str | None) -> str:
+    """Sportnamen für Vergleich/Zählung vereinheitlichen (Entities, ``-``)."""
+    text = clean_html(value)
+    text = re.sub(r"\s*-\s*", "-", text)
+    return text.casefold()
+
+
 def _attach_sport_counts(sports: list[Sport], data: dict[str, Any]) -> list[Sport]:
     counts: dict[str, int] = {}
     for raw in data.get("kurse") or []:
         if isinstance(raw, list) and len(raw) > 2:
-            name = str(raw[2])
+            name = _sport_name_key(str(raw[2]))
             counts[name] = counts.get(name, 0) + 1
     for sport in sports:
-        sport.course_count = counts.get(sport.name, 0)
+        sport.course_count = counts.get(_sport_name_key(sport.name), 0)
     return sports
 
 
@@ -232,11 +240,11 @@ def _match_sports(sports: list[Sport], name: str) -> list[Sport]:
     exact = [sport for sport in sports if sport.name == raw]
     if exact:
         return exact
-    folded = raw.casefold()
-    exact_ci = [sport for sport in sports if sport.name.casefold() == folded]
+    folded = _sport_name_key(raw)
+    exact_ci = [sport for sport in sports if _sport_name_key(sport.name) == folded]
     if exact_ci:
         return exact_ci
-    return [sport for sport in sports if folded in sport.name.casefold()]
+    return [sport for sport in sports if folded in _sport_name_key(sport.name)]
 
 
 def _load_sport_pages_by_name(
