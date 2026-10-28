@@ -115,6 +115,24 @@ class TestCourses:
         assert payload["count"] == 0
 
 
+class TestCliExitCodes:
+    def test_version_exit_zero(self, capsys):
+        code = main(["--version"])
+        captured = capsys.readouterr()
+        assert code == 0
+        assert "hsport" in captured.out
+
+    def test_help_exit_zero(self, capsys):
+        code = main(["--help"])
+        captured = capsys.readouterr()
+        assert code == 0
+        assert "usage" in captured.out.lower()
+
+    def test_unknown_command_nonzero(self, capsys):
+        code = main(["does-not-exist"])
+        assert code != 0
+
+
 class TestCliErrors:
     def test_invalid_portal_usage(self):
         with pytest.raises(UsageError):
