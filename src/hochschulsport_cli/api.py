@@ -224,6 +224,53 @@ def _load_sport_page(
     return courses
 
 
+def _match_sports(sports: list[Sport], name: str) -> list[Sport]:
+    """Sportarten zu einem Namen auflösen: exakt vor case-insensitiv vor Substring."""
+    raw = name.strip()
+    if not raw:
+        return []
+    exact = [sport for sport in sports if sport.name == raw]
+    if exact:
+        return exact
+    folded = raw.casefold()
+    exact_ci = [sport for sport in sports if sport.name.casefold() == folded]
+    if exact_ci:
+        return exact_ci
+    return [sport for sport in sports if folded in sport.name.casefold()]
+
+
+def _load_sport_pages_by_name(
+    portal: Portal, client: HttpClient, sport_name: str
+) -> list[Course]:
+    """Positionalen Sportnamen gegen die Sportartenliste auflösen.
+
+    ``yoga`` soll auch dann funktionieren, wenn keine Sportseite exakt
+    ``_yoga.html`` heißt. Exakte Namen (auch case-insensitiv) gewinnen; sonst
+    werden alle passenden Sportseiten geladen. Kein Treffer -> UsageError.
+    """
+    sports = parse_sports(_load_index_html(portal, client))
+    matches = _match_sports(sports, sport_name)
+    if not matches:
+        raise UsageError(
+            f"Unbekannte Sportart: {sport_name!r}. "
+            f"Mit 'hsport sports --query {sport_name}' passende Namen finden "
+            "oder --sport/--query verwenden."
+        )
+    courses: list[Course] = []
+    seen: set[str] = set()
+    for sport in matches:
+        try:
+            rows = _load_sport_page(portal, client, sport.name)
+        except UsageError:
+            continue
+        for course in rows:
+            if course.course_nr in seen:
+                continue
+            seen.add(course.course_nr)
+            courses.append(course)
+    return courses
+
+
 def _enrich_from_sport_pages(
     portal: Portal,
     client: HttpClient,
@@ -280,7 +327,7 @@ def cmd_courses(
     day_norm = normalize_day(day)
 
     if sport:
-        courses = _load_sport_page(portal, client, sport)
+        courses = _load_sport_pages_by_name(portal, client, sport)
         courses = _apply_course_filters(
             courses,
             query=None,
