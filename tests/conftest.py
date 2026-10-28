@@ -53,6 +53,8 @@ class FixtureHttpClient(HttpClient):
             return _read_fixture("sport_bogensport_stuttgart.html")
         if "_Aerobic.html" in url:
             return _read_fixture("sport_aerobic_hsdemo.html")
+        if "Yoga" in url and url.endswith(".html"):
+            return _read_fixture("sport_yoga_stuttgart.html")
         if "/angebote/" in url and ".html" in url:
             return "<html><body></body></html>"
         raise AssertionError(f"unexpected URL in test: {url}")

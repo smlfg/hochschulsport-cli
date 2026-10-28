@@ -90,6 +90,16 @@ def test_parse_course_detail_50100():
     assert course.locations[0]["name"].startswith("Außenanlage")
 
 
+def test_search_data_period_strips_html_tags():
+    js = (FIXTURES / "kurssuche_stuttgart.js").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    data = parse_search_data(js)
+    courses = {c.course_nr: c for c in courses_from_search_data(data)}
+    assert courses["13601"].period == "12.10.-11.04."
+    assert "<" not in courses["13601"].period
+
+
 def test_kurssuche_invalid_raises():
     try:
         parse_search_data("not json")

@@ -66,6 +66,27 @@ class TestCourses:
         for course in payload["courses"]:
             assert "yoga" in course["sport"].casefold()
 
+    def test_courses_sport_filter_yoga_period_and_detail_url(self, fixture_client):
+        portal = resolve_portal("stuttgart")
+        payload = api.cmd_courses(portal, fixture_client, sport_filter="yoga")
+        assert payload["count"] >= 1
+        for course in payload["courses"]:
+            assert "<" not in (course["period"] or "")
+            assert ">" not in (course["period"] or "")
+            assert course["detail_url"]
+            assert course["detail_url"].startswith(
+                portal.base_url + "/cgi/webpage.cgi?kursinfo="
+            )
+        by_nr = {c["course_nr"]: c for c in payload["courses"]}
+        assert by_nr["13601"]["period"] == "12.10.-11.04."
+        assert by_nr["13601"]["booking_status"] == "warteliste"
+
+    def test_courses_sport_filter_status_from_sport_page(self, fixture_client):
+        portal = resolve_portal("stuttgart")
+        payload = api.cmd_courses(portal, fixture_client, sport_filter="Bogensport")
+        by_nr = {c["course_nr"]: c for c in payload["courses"]}
+        assert by_nr["50102"]["booking_status"] == "warteliste"
+
     def test_courses_query_and_sport_filter(self, fixture_client):
         portal = resolve_portal("stuttgart")
         payload = api.cmd_courses(
