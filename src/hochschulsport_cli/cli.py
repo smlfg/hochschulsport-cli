@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
+import io
 import json
 import sys
 from typing import Any, Callable
@@ -229,17 +231,17 @@ def _main(argv: list[str] | None = None) -> int:
     )
 
     try:
-        args, unknown = root.parse_known_args(argv)
+        if as_json:
+            # argparse schreibt sonst Text vor das JSON-Fehlerobjekt.
+            with contextlib.redirect_stderr(io.StringIO()):
+                args, unknown = root.parse_known_args(argv)
+        else:
+            args, unknown = root.parse_known_args(argv)
     except SystemExit as exc:
         code = exc.code if isinstance(exc.code, int) else 1
         if code == 0:
             return EXIT_OK
-        if as_json:
-            return _fail(
-                CliError("Ungültige Argumente.", kind="usage", exit_code=code),
-                True,
-            )
-        return code
+        return _fail(UsageError("Ungültige Argumente."), as_json)
 
     if unknown:
         return _fail(CliError(f"Unbekannte Argumente: {' '.join(unknown)}"), as_json)
