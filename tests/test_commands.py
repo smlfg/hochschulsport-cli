@@ -50,6 +50,14 @@ class TestSports:
         assert payload["count"] == 1
         assert payload["sports"][0]["name"] == "Bogensport"
 
+    def test_sports_query_special_chars_course_counts(self, fixture_client):
+        portal = resolve_portal("stuttgart")
+        payload = api.cmd_sports(portal, fixture_client, query="yoga")
+        counts = {s["name"]: s["course_count"] for s in payload["sports"]}
+        assert counts["Acro Yoga & Bodenakrobatik"] == 1
+        assert counts["Yoga - Breathe & Flow"] == 1
+        assert counts["Yoga für alle"] == 1
+
 
 class TestCourses:
     def test_courses_bogensport(self, fixture_client):
