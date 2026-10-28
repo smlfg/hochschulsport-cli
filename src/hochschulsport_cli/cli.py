@@ -230,13 +230,16 @@ def _main(argv: list[str] | None = None) -> int:
 
     try:
         args, unknown = root.parse_known_args(argv)
-    except SystemExit:
+    except SystemExit as exc:
+        code = exc.code if isinstance(exc.code, int) else 1
+        if code == 0:
+            return EXIT_OK
         if as_json:
             return _fail(
-                CliError("Ungültige Argumente.", kind="usage", exit_code=1),
+                CliError("Ungültige Argumente.", kind="usage", exit_code=code),
                 True,
             )
-        return 2
+        return code
 
     if unknown:
         return _fail(CliError(f"Unbekannte Argumente: {' '.join(unknown)}"), as_json)
