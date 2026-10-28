@@ -36,9 +36,12 @@ hsport courses --sport yoga --json
 hsport courses --query "Schwimmen" --sport schwimm --json
 ```
 
-`courses` verlangt einen **positionalen Sportnamen** (exakte Sportseite), `--sport`
-(Substring-Filter auf die Sportart, case-insensitive) oder `--query`. Positionaler
-Sportname und `--query` schließen sich aus; `--sport` lässt sich mit `--query` kombinieren.
+`courses` verlangt einen **positionalen Sportnamen**, `--sport` (Substring-Filter auf
+die Sportart, case-insensitive) oder `--query`. Der positionale Name wird
+case-insensitiv gegen die Sportartenliste aufgelöst (exakter Name bevorzugt, sonst
+werden passende Sportseiten geladen). Kein Treffer → Exit **1** (`usage`) mit Hinweis
+auf `hsport sports --query` und `--sport`. Positionaler Sportname und `--query`
+schließen sich aus; `--sport` lässt sich mit `--query` kombinieren.
 
 ## `hsport course <kursnr>`
 
@@ -111,6 +114,9 @@ Sessions nur OS-Schlüsselbund oder Datei mit 0600, nie im Repo.
 | 3 | `network` | Netzwerk, HTTP ≥ 500 |
 | 4 | `parse` | HTML/JSON unlesbar |
 | 5 | `forbidden` | Nicht buchbar, Aktion gesperrt |
+
+Auch argparse-Fehler (unbekannter Befehl, fehlende/ungültige Argumente) liefern
+Exit **1** (`usage`), mit und ohne `--json`. `--help` und `--version` bleiben Exit 0.
 
 JSON-Fehler:
 
