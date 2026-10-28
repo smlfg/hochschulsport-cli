@@ -122,8 +122,41 @@ class TestCourses:
 
     def test_unknown_sport_usage(self, fixture_client):
         portal = resolve_portal("stuttgart")
-        with pytest.raises(UsageError):
+        with pytest.raises(UsageError) as exc:
             api.cmd_courses(portal, fixture_client, sport="NichtExistiert")
+        assert "hsport sports --query" in exc.value.message
+        assert "--sport" in exc.value.message
+
+    def test_courses_sport_case_insensitive_exact(self, fixture_client):
+        portal = resolve_portal("stuttgart")
+        payload = api.cmd_courses(portal, fixture_client, sport="bogensport")
+        assert payload["count"] == 3
+        assert all(c["sport"] == "Bogensport" for c in payload["courses"])
+
+    def test_courses_sport_nonexact_resolves_without_404(self, fixture_client):
+        portal = resolve_portal("stuttgart")
+        payload = api.cmd_courses(portal, fixture_client, sport="yoga")
+        assert payload["count"] == 12
+        assert all(c["detail_url"] for c in payload["courses"])
+
+    def test_unknown_sport_json_cli_exit_usage(self, monkeypatch, capsys):
+        import hochschulsport_cli.cli as cli_mod
+
+        from tests.conftest import FixtureHttpClient
+
+        monkeypatch.setattr(
+            cli_mod, "HttpClient", lambda *args, **kwargs: FixtureHttpClient()
+        )
+        code = main(["courses", "NichtExistiert", "--json"])
+        captured = capsys.readouterr()
+        assert code == 1
+        assert captured.out == ""
+        assert "Traceback" not in captured.err
+        data = json.loads(captured.err)
+        assert data["error"]["kind"] == "usage"
+        assert data["error"]["code"] == 1
+        assert "hsport sports --query" in data["error"]["message"]
+        assert "--sport" in data["error"]["message"]
 
     def test_invalid_day(self, fixture_client):
         portal = resolve_portal("stuttgart")
