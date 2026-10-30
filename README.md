@@ -17,16 +17,24 @@ Wenn der Befehl danach nicht gefunden wird: pipx nutzen oder das bin-Verzeichnis
 Umgebungsvariablen: `HS_LOGIN_USER`, `HS_LOGIN_PASSWORD`, `HS_STATUSGRUPPE`, `HSPORT_FIRSTNAME`, `HSPORT_LASTNAME`, `HS_PORTAL`. Env überschreibt die Config. Buchen nur mit `hsport book <kursnr> --confirm` (oder `--yes`); mit `--json` bleibt die Maschinenausgabe stabil.
 
 Agent-CLI für Hochschulsport-Buchungsportale (Buchsys): Sportarten, Kurse,
-Kursdetails, Buchungsstatus-Watch und Buchungs-Vorbereitung. **Buchen nur mit
-`--confirm`.**
+Kursdetails, Buchungsstatus-Watch und Buchung. **Im Terminal fragt `hsport book`
+vor dem Buchen nach; Agenten buchen nur mit `--confirm`/`--yes`.**
 
 ## Installation
 
+Empfohlen (landet im PATH):
+
+```bash
+pipx install git+https://github.com/smlfg/hochschulsport-cli
+```
+
+Mit pip (dann muss das `bin`-Verzeichnis des venv im PATH liegen):
+
 ```bash
 pip install git+https://github.com/smlfg/hochschulsport-cli
-# oder lokal:
-pip install .
 ```
+
+Aus einem lokalen Klon (im Repo-Ordner): `pip install .`
 
 Console-Script: `hsport`
 
