@@ -15,5 +15,9 @@ def xdg_config_home() -> Path:
     return Path.home() / ".config"
 
 
+def default_config_path() -> Path:
+    return xdg_config_home() / APP_NAME / "config.json"
+
+
 def default_watch_state_path() -> Path:
     return xdg_config_home() / APP_NAME / "watch.json"
