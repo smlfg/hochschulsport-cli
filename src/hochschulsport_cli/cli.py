@@ -711,7 +711,18 @@ def _main(argv: list[str] | None = None) -> int:
             as_json,
         )
 
-    root = argparse.ArgumentParser(prog="hsport", description="Hochschulsport Buchsys CLI")
+    root = argparse.ArgumentParser(
+        prog="hsport",
+        description="Hochschulsport-Buchungsportale (Buchsys) von der Kommandozeile",
+        epilog=(
+            "Beispiele:\n"
+            "  hsport login\n"
+            "  hsport book volleyball\n"
+            "  hsport book 50100 --confirm\n"
+            "  hsport courses --query yoga --free-only"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     root.add_argument("--version", action="version", version=f"hsport {__version__}")
     _add_globals(root)
     sub = root.add_subparsers(dest="command", required=True)
@@ -730,7 +741,9 @@ def _main(argv: list[str] | None = None) -> int:
         "whoami",
         help="Gespeicherte Identität anzeigen (Passwort nur als Status)",
     )
-    config_p = sub.add_parser("config", help="Konfiguration anzeigen")
+    config_p = sub.add_parser(
+        "config", help="Konfiguration anzeigen oder Default-Portal setzen"
+    )
     config_sub = config_p.add_subparsers(dest="config_command")
     config_portal_p = config_sub.add_parser("portal", help="Default-Portal setzen")
     config_portal_p.add_argument("portal_id", metavar="ID", help="Portal-ID oder URL")
@@ -765,12 +778,36 @@ def _main(argv: list[str] | None = None) -> int:
         help="Pfad zur Watch-State-Datei (Default: XDG config)",
     )
 
-    book_p = sub.add_parser("book", help="Buchung vorbereiten oder mit --confirm absenden")
-    book_p.add_argument("course_nr", metavar="KURSNR", help="Kursnummer")
+    book_p = sub.add_parser(
+        "book",
+        help="Buchung vorbereiten oder mit --confirm/--yes absenden",
+        description=(
+            "Bucht eine Kursnummer oder zeigt buchbare Kurse einer Sportart "
+            "zur Auswahl. Im TTY wird vor dem Absenden nachgefragt; ohne "
+            "TTY bleibt es ohne --confirm/--yes bei einem Trockenlauf."
+        ),
+        epilog=(
+            "Beispiele:\n"
+            "  hsport book volleyball\n"
+            "  hsport book 50100\n"
+            "  hsport book 50100 --confirm"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    book_p.add_argument(
+        "course_nr",
+        metavar="KURSNR|SPORT",
+        help="Kursnummer (nur Ziffern) oder Sportname",
+    )
     book_p.add_argument(
         "--confirm",
         action="store_true",
-        help="Buchung wirklich absenden (Pflicht-Env vorher setzen)",
+        help="Buchung wirklich absenden (Login aus Config oder Env)",
+    )
+    book_p.add_argument(
+        "--yes",
+        action="store_true",
+        help="Alias für --confirm (ohne Rückfrage buchen)",
     )
 
     try:
