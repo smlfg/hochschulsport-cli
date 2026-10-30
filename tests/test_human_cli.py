@@ -138,6 +138,9 @@ def test_config_portal_unbekannt_ist_usage_fehler(xdg_config, capsys):
     assert captured.out == ""
     data = json.loads(captured.err)
     assert data["error"]["kind"] == "usage"
+    assert "Unbekanntes Portal 'gibtsnicht'" in data["error"]["message"]
+    assert "hsport portals" in data["error"]["message"]
+    assert "Buchsys-URL" in data["error"]["message"]
 
 
 def test_portals_text_zeigt_default_hinweis(xdg_config, monkeypatch, capsys):

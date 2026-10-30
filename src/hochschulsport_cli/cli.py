@@ -30,7 +30,7 @@ from .course_resolve import resolve_course
 from .errors import CliError, EXIT_OK, EXIT_USAGE, UsageError
 from .http_client import HttpClient
 from .models import STATUS_BOOKABLE, Course
-from .portals import DEFAULT_PORTAL_ID, Portal, resolve_portal
+from .portals import DEFAULT_PORTAL_ID, PORTALS_BY_ID, Portal, resolve_portal
 
 
 def _emit(payload: dict[str, Any], as_json: bool, text: str | None = None) -> None:
@@ -355,6 +355,18 @@ def _cmd_config_show(as_json: bool) -> int:
 
 
 def _cmd_config_portal(portal_id: str, as_json: bool) -> int:
+    value = (portal_id or "").strip()
+    if (
+        value
+        and value not in PORTALS_BY_ID
+        and "://" not in value
+        and "." not in value
+        and "/" not in value
+    ):
+        raise UsageError(
+            f"Unbekanntes Portal {value!r} – `hsport portals` zeigt alle IDs "
+            "(oder volle Buchsys-URL angeben)"
+        )
     portal = resolve_portal(portal_id)
     config = config_mod.load()
     config["default_portal"] = portal.id
