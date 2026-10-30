@@ -40,6 +40,17 @@ class TestPortals:
         assert payload["source"] == "Standard"
         assert "portal.studi.hn" in payload["hint"]
 
+    def test_portal_url_keeps_port(self):
+        portal = resolve_portal("http://127.0.0.1:12345")
+        assert portal.base_url == "http://127.0.0.1:12345"
+        assert portal.url("/angebote/aktueller_zeitraum/index.html") == (
+            "http://127.0.0.1:12345/angebote/aktueller_zeitraum/index.html"
+        )
+
+    def test_portal_url_keeps_port_with_path(self):
+        portal = resolve_portal("http://127.0.0.1:12345/buchsys")
+        assert portal.base_url == "http://127.0.0.1:12345/buchsys"
+
 
 class TestSports:
     def test_sports_count(self, fixture_client):

@@ -115,7 +115,8 @@ def _normalize_base_url(raw: str) -> str:
     hostname = host.split(":")[0]
     if not hostname or "." not in hostname:
         raise UsageError(f"Ungültiger Portal-Host: {host!r}")
-    base = f"{scheme}://{hostname}"
+    # Port erhalten: Test-/Fake-Server laufen auf 127.0.0.1:<port>.
+    base = f"{scheme}://{host}"
     path = path.strip("/")
     if path:
         base = f"{base}/{path}"
