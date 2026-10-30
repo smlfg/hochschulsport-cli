@@ -242,7 +242,7 @@ def _format_whoami(payload: dict[str, Any]) -> str:
         f"Name: {payload.get('name') or '–'} ({source('first_name')}/{source('last_name')})",
         f"Statusgruppe: {payload.get('status_group') or '–'} ({source('status_group')})",
         f"E-Mail: {payload.get('email') or '–'} ({source('email')})",
-        f"Passwort: {_password_label(payload.get('password') or {})}",
+        f"Passwort: {payload.get('password') or 'fehlt'}",
     ]
     return "\n".join(lines)
 
@@ -268,7 +268,8 @@ def _cmd_whoami(portal: Portal, as_json: bool) -> int:
         "last_name": last_name,
         "status_group": values.get("status_group"),
         "email": values.get("email"),
-        "password": password,
+        "password": _password_label(password),
+        "password_store": password.get("store"),
         "sources": sources,
     }
     _emit(payload, as_json, text=_format_whoami(payload))

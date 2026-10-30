@@ -211,9 +211,8 @@ def clear(portal_id: str | None = None) -> None:
         return
 
     config = load()
-    entry = config["portals"].pop(portal_id, None)
-    if entry is not None:
-        _keyring_delete(portal_id)
+    config["portals"].pop(portal_id, None)
+    _keyring_delete(portal_id)
 
     if config["portals"] or config["default_portal"]:
         save(config)
