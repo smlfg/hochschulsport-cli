@@ -496,8 +496,11 @@ def _print_book_summary(payload: dict[str, Any]) -> None:
     sys.stdout.write("\n".join(_book_summary_lines(payload)) + "\n")
 
 
-def _format_book_text(payload: dict[str, Any]) -> str:
-    lines = _book_summary_lines(payload)
+def _format_book_text(
+    payload: dict[str, Any], *, notice: str | None = None
+) -> str:
+    lines = [notice] if notice else []
+    lines.extend(_book_summary_lines(payload))
     if payload.get("confirmed") is False:
         lines.append("Nicht gebucht (Trockenlauf) – keine Buchung gesendet.")
     elif payload.get("dry_run"):
@@ -546,6 +549,13 @@ def _ensure_book_credentials(
         raise UsageError(_login_missing_message())
 
 
+def _stdout_is_tty() -> bool:
+    try:
+        return bool(sys.stdout.isatty())
+    except Exception:
+        return False
+
+
 def _handle_book(
     portal: Portal,
     client: HttpClient,
@@ -555,6 +565,8 @@ def _handle_book(
     target = args.course_nr.strip()
     confirm = bool(args.confirm or getattr(args, "yes", False))
     interactive = prompts.is_tty() and not as_json
+    human_output = (interactive or _stdout_is_tty()) and not as_json
+    single_notice: str | None = None
     credentials = None
 
     # --confirm/--yes: Login vor jedem Request prüfen (Agenten ohne TTY).
@@ -583,6 +595,12 @@ def _handle_book(
             )
         if len(bookable) == 1:
             course = bookable[0]
+            if human_output:
+                others = len(courses) - len(bookable)
+                single_notice = (
+                    f"1 buchbarer Kurs für „{target}“ gefunden "
+                    f"(weitere {others} nur Warteliste/ausgebucht)."
+                )
         elif not interactive:
             if not as_json:
                 _print_course_choices(bookable, status_group)
@@ -613,6 +631,8 @@ def _handle_book(
     _decorate_book_payload(summary, portal, course, status_group, credentials, target)
 
     if interactive:
+        if single_notice:
+            sys.stdout.write(single_notice + "\n")
         _print_book_summary(summary)
         if not confirm:
             if not prompts.confirm("Jetzt verbindlich buchen?", default=False):
@@ -647,7 +667,7 @@ def _handle_book(
     if interactive:
         text = "Buchung gesendet." if confirm else "Keine Buchung gesendet."
     else:
-        text = _format_book_text(payload)
+        text = _format_book_text(payload, notice=single_notice)
     _emit(payload, as_json, text=text)
     return EXIT_OK
 

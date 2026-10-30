@@ -164,6 +164,32 @@ def test_portals_quelle_config(xdg_config, monkeypatch, capsys):
     assert "(aktuell: hamburg, Quelle: config)" in out
 
 
+def test_book_ein_buchbarer_treffer_zeigt_hinweis(
+    xdg_config, monkeypatch, capsys
+):
+    courses = [
+        _course("50100"),
+        _course("50102", status=STATUS_WAITLIST),
+        _course("50103", status="ausgebucht"),
+    ]
+    monkeypatch.setattr(
+        "hochschulsport_cli.cli.load_courses_for_sport",
+        lambda portal, client, name: courses,
+    )
+    _fixture_client(monkeypatch)
+    monkeypatch.setattr(prompts, "is_tty", lambda: False)
+    monkeypatch.setattr("sys.stdout.isatty", lambda: True)
+
+    assert main(["book", "volleyball"]) == 0
+    out = capsys.readouterr().out
+    notice = (
+        "1 buchbarer Kurs für „volleyball“ gefunden "
+        "(weitere 2 nur Warteliste/ausgebucht)."
+    )
+    assert notice in out
+    assert out.index(notice) < out.index("Kurs: 50100")
+
+
 def test_env_ueberschreibt_config(xdg_config, monkeypatch, capsys):
     _login(monkeypatch)
     monkeypatch.setenv("HS_LOGIN_USER", "env@example.org")
