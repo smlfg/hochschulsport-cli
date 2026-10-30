@@ -4,11 +4,11 @@ Alle Einträge sind am 2026-10-22 live von dieser Box aus verifiziert:
 HTTP 200 auf ``<basis>/angebote/aktueller_zeitraum/index.html`` **und**
 echte Kurstabelle (``table.bs_kurse``) **und** parsebares ``kurssuche.js``.
 
-Heilbronn/Region ist als Default nicht möglich: die Hochschulen in der Region
-betreiben entweder kein Buchsys (``www.hochschulsport-heilbronn.de``,
-``hs-sport.heilbronn.de`` → kein Host) oder ein anderes System
-(``www.hochschulsport.uni-mannheim.de`` → 404/403 ohne Buchsys-Unterpfad).
-Default ist deshalb Stuttgart (Baden-Württemberg).
+Hochschule Heilbronn (HHN, DHBW HN, TUM HN) nutzt das eigene
+Hochschulsportportal https://portal.studi.hn (Hochschul-Login, **kein**
+Buchsys). Am 2026-10-30 geprüft: ``/angebote/aktueller_zeitraum/`` antwortet
+mit HTTP 302. Deshalb gibt es keinen Heilbronn-Eintrag; Default bleibt
+Stuttgart (Baden-Württemberg).
 """
 
 from __future__ import annotations
@@ -18,6 +18,11 @@ from dataclasses import dataclass
 from .errors import UsageError
 
 DEFAULT_PORTAL_ID = "stuttgart"
+
+#: Hinweis für ``hsport portals``: Heilbronn ist kein Buchsys-Portal.
+HEILBRONN_HINT = (
+    "Heilbronn (HHN/DHBW/TUM): portal.studi.hn – kein Buchsys, nicht unterstützt"
+)
 
 #: Kürzel für ``--portal``, das zu ``https://www.buchsys.de/<slug>`` ergänzt wird.
 BUCHSYS_HOST = "https://www.buchsys.de"

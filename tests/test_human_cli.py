@@ -140,6 +140,27 @@ def test_config_portal_unbekannt_ist_usage_fehler(xdg_config, capsys):
     assert data["error"]["kind"] == "usage"
 
 
+def test_portals_text_zeigt_default_hinweis(xdg_config, monkeypatch, capsys):
+    _fixture_client(monkeypatch)
+    assert main(["portals"]) == 0
+    out = capsys.readouterr().out
+    assert "Default ändern: hsport config portal stuttgart" in out
+    assert "(aktuell: stuttgart, Quelle: Standard)" in out
+    assert (
+        "Heilbronn (HHN/DHBW/TUM): portal.studi.hn – kein Buchsys, "
+        "nicht unterstützt"
+    ) in out
+
+
+def test_portals_quelle_config(xdg_config, monkeypatch, capsys):
+    assert main(["config", "portal", "hamburg", "--json"]) == 0
+    capsys.readouterr()
+    _fixture_client(monkeypatch)
+    assert main(["portals"]) == 0
+    out = capsys.readouterr().out
+    assert "(aktuell: hamburg, Quelle: config)" in out
+
+
 def test_env_ueberschreibt_config(xdg_config, monkeypatch, capsys):
     _login(monkeypatch)
     monkeypatch.setenv("HS_LOGIN_USER", "env@example.org")

@@ -36,6 +36,9 @@ class TestPortals:
         assert stuttgart["reachable"] is True
         assert stuttgart["sports"] == 168
         assert stuttgart["courses"] == 404
+        assert payload["current"] == "stuttgart"
+        assert payload["source"] == "Standard"
+        assert "portal.studi.hn" in payload["hint"]
 
 
 class TestSports:

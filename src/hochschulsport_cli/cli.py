@@ -61,6 +61,15 @@ def _payload_to_text(payload: dict[str, Any]) -> str:
                 f"  {p.get('id')}: {p.get('name')} [{flag}] "
                 f"sports={p.get('sports')} courses={p.get('courses')}"
             )
+        current = payload.get("current") or payload.get("default") or DEFAULT_PORTAL_ID
+        source = payload.get("source") or "Standard"
+        lines.append("")
+        lines.append(
+            f"Default ändern: hsport config portal {current}  "
+            f"(aktuell: {current}, Quelle: {source})"
+        )
+        if payload.get("hint"):
+            lines.append(str(payload["hint"]))
         return "\n".join(lines) + "\n"
     if "sports" in payload:
         lines = [f"Sportarten ({payload.get('count', 0)}) – Portal {payload.get('portal')}"]
@@ -102,6 +111,20 @@ def _env_first(names: tuple[str, ...]) -> str | None:
         if value is not None and str(value).strip():
             return str(value).strip()
     return None
+
+
+def _portal_source(explicit: str | None) -> str:
+    """Woher der aktive Default kommt: ``--portal``, Env, Config oder Standard."""
+    if explicit:
+        return "--portal"
+    if _env_first(("HS_PORTAL", "HS_BASE_URL")):
+        return "HS_PORTAL"
+    try:
+        if config_mod.load().get("default_portal"):
+            return "config"
+    except CliError:
+        return "Standard"
+    return "Standard"
 
 
 def _credential_value(portal_id: str, field: str) -> tuple[str | None, str | None]:
@@ -861,7 +884,13 @@ def _main(argv: list[str] | None = None) -> int:
         return _cmd_config_show(as_json)
 
     if args.command == "portals":
-        return _run(cmd_portals, as_json, client=client)
+        return _run(
+            cmd_portals,
+            as_json,
+            client=client,
+            current=portal.id,
+            source=_portal_source(portal_arg),
+        )
 
     if args.command == "sports":
         return _run(cmd_sports, as_json, portal=portal, client=client, query=args.query)

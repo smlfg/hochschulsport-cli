@@ -37,6 +37,7 @@ from .watch_state import (
 )
 from .portals import (
     DEFAULT_PORTAL_ID,
+    HEILBRONN_HINT,
     OFFERTS_PATH,
     PORTALS,
     Portal,
@@ -167,9 +168,21 @@ def check_portal(
     }
 
 
-def cmd_portals(client: HttpClient) -> dict[str, Any]:
+def cmd_portals(
+    client: HttpClient,
+    *,
+    current: str | None = None,
+    source: str | None = None,
+) -> dict[str, Any]:
     items = [check_portal(p, client, portal_id=p.id) for p in PORTALS]
-    return {"portals": items, "count": len(items), "default": DEFAULT_PORTAL_ID}
+    return {
+        "portals": items,
+        "count": len(items),
+        "default": DEFAULT_PORTAL_ID,
+        "current": current or DEFAULT_PORTAL_ID,
+        "source": source or "Standard",
+        "hint": HEILBRONN_HINT,
+    }
 
 
 def _sport_name_key(value: str | None) -> str:
