@@ -504,7 +504,7 @@ def _ensure_book_credentials(
         return load_booking_credentials(portal.id)
     except UsageError:
         if interactive and prompts.confirm(
-            "Login fehlt. Jetzt `hsport login` starten?", default=True
+            "Jetzt `hsport login` starten?", default=True
         ):
             _login_interactive(portal)
             return load_booking_credentials(portal.id)
