@@ -1,5 +1,21 @@
 # hochschulsport-cli
 
+## Schnellstart (für Menschen)
+
+```bash
+pipx install git+https://github.com/smlfg/hochschulsport-cli   # empfohlen, landet im PATH
+hsport login
+hsport book volleyball
+hsport config portal hamburg
+```
+
+Alternative: `pip install --user git+https://github.com/smlfg/hochschulsport-cli`.
+Wenn der Befehl danach nicht gefunden wird: pipx nutzen oder das bin-Verzeichnis des venv in den PATH aufnehmen. `hsport: command not found` nach pip install? Das bin-Verzeichnis des venv liegt nicht im PATH (z. B. bei aktivem conda base). Lösung: pipx, oder `export PATH="$HOME/venvs/global/bin:$PATH"` bzw. Pfad aus `pip show -f hochschulsport-cli`.
+
+## Für Agenten
+
+Umgebungsvariablen: `HS_LOGIN_USER`, `HS_LOGIN_PASSWORD`, `HS_STATUSGRUPPE`, `HSPORT_FIRSTNAME`, `HSPORT_LASTNAME`, `HS_PORTAL`. Env überschreibt die Config. Buchen nur mit `hsport book <kursnr> --confirm` (oder `--yes`); mit `--json` bleibt die Maschinenausgabe stabil.
+
 Agent-CLI für Hochschulsport-Buchungsportale (Buchsys): Sportarten, Kurse,
 Kursdetails, Buchungsstatus-Watch und Buchungs-Vorbereitung. **Buchen nur mit
 `--confirm`.**
@@ -23,6 +39,18 @@ Console-Script: `hsport`
 | `--timeout SEK` | HTTP-Timeout (Default: 20) |
 
 Umgebung: `HS_PORTAL` / `HS_BASE_URL` (Default-Portal), `XDG_CONFIG_HOME`.
+
+## Befehle
+
+| Befehl | Zweck |
+|--------|-------|
+| `hsport portals` | Bekannte Portale, aktueller Default und dessen Quelle |
+| `hsport login` / `hsport logout` | Login interaktiv speichern / löschen |
+| `hsport whoami` | Gespeicherte Identität anzeigen (Passwort nur als Status) |
+| `hsport config` / `hsport config portal <id>` | Konfiguration anzeigen / Default-Portal setzen |
+| `hsport sports`, `hsport courses`, `hsport course <kursnr>` | Sportarten und Kurse |
+| `hsport watch <kursnr>` | Buchungsstatus beobachten |
+| `hsport book <kursnr\|sport>` | Trockenlauf oder mit `--confirm` / `--yes` buchen |
 
 ## Portale
 
