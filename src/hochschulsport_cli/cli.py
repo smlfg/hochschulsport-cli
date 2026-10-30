@@ -6,10 +6,13 @@ import argparse
 import contextlib
 import io
 import json
+import os
 import sys
 from typing import Any, Callable
 
 from . import __version__
+from . import config as config_mod
+from . import prompts
 from pathlib import Path
 
 from .api import (
@@ -21,8 +24,10 @@ from .api import (
     cmd_watch,
     portal_from_env,
 )
+from .booking import ENV_FIELDS
 from .errors import CliError, EXIT_OK, EXIT_USAGE, UsageError
 from .http_client import HttpClient
+from .portals import DEFAULT_PORTAL_ID, Portal, resolve_portal
 
 
 def _emit(payload: dict[str, Any], as_json: bool, text: str | None = None) -> None:
@@ -79,6 +84,257 @@ def _payload_to_text(payload: dict[str, Any]) -> str:
             )
         return "\n".join(lines) + "\n"
     return json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
+
+
+STATUS_GROUP_CHOICES = (
+    ("1", "Studierende"),
+    ("2", "Beschäftigte"),
+    ("3", "Externe"),
+)
+
+
+def _env_first(names: tuple[str, ...]) -> str | None:
+    for key in names:
+        value = os.environ.get(key)
+        if value is not None and str(value).strip():
+            return str(value).strip()
+    return None
+
+
+def _credential_value(portal_id: str, field: str) -> tuple[str | None, str | None]:
+    env_value = _env_first(ENV_FIELDS.get(field, ()))
+    if env_value:
+        return env_value, "env"
+    try:
+        entry = config_mod.load_portal(portal_id)
+    except CliError:
+        entry = {}
+    value = entry.get(field)
+    if isinstance(value, str) and value.strip():
+        return value.strip(), "config"
+    return None, None
+
+
+def _status_group(portal_id: str) -> str | None:
+    return _credential_value(portal_id, "status_group")[0]
+
+
+def _display_name(portal_id: str) -> str | None:
+    first = _credential_value(portal_id, "first_name")[0]
+    last = _credential_value(portal_id, "last_name")[0]
+    name = " ".join(part for part in (first, last) if part)
+    return name or None
+
+
+def _password_info(portal_id: str) -> dict[str, Any]:
+    env_password = _env_first(ENV_FIELDS["login_password"])
+    if env_password:
+        return {"stored": True, "store": "env", "source": "env"}
+    try:
+        entry = config_mod.load_portal(portal_id)
+    except CliError:
+        entry = {}
+    password = entry.get("login_password")
+    store = entry.get("password_store")
+    if password:
+        if store not in ("keyring", "file"):
+            store = "file"
+        return {"stored": True, "store": store, "source": "config"}
+    return {"stored": False, "store": None, "source": None}
+
+
+def _password_label(info: dict[str, Any]) -> str:
+    if not info.get("stored"):
+        return "fehlt"
+    store = info.get("store")
+    if store == "env":
+        return "gespeichert (env)"
+    if store == "keyring":
+        return "gespeichert (keyring)"
+    return "gespeichert (Datei)"
+
+
+def _ask_status_group(existing: str | None) -> str:
+    default_index = "1"
+    if existing:
+        for index, label in STATUS_GROUP_CHOICES:
+            if existing.strip().casefold() == label.casefold():
+                default_index = index
+                break
+    sys.stdout.write("Statusgruppe:\n")
+    for index, label in STATUS_GROUP_CHOICES:
+        sys.stdout.write(f"  {index}) {label}\n")
+    while True:
+        raw = prompts.ask("Auswahl", default=default_index).strip()
+        if not raw:
+            raw = default_index
+        for index, label in STATUS_GROUP_CHOICES:
+            if raw == index or raw.casefold() == label.casefold():
+                return label
+        sys.stderr.write("Ungültige Auswahl. Bitte 1, 2 oder 3.\n")
+
+
+def _login_interactive(portal: Portal) -> dict[str, Any]:
+    existing = config_mod.load_portal(portal.id)
+    sys.stdout.write(f"Login für {portal.name} ({portal.id})\n")
+    login_user = prompts.ask("E-Mail/Login", default=existing.get("login_user")).strip()
+    if not login_user:
+        raise UsageError("Login darf nicht leer sein.")
+    password = prompts.ask_secret("Passwort")
+    first_name = prompts.ask("Vorname", default=existing.get("first_name")).strip()
+    last_name = prompts.ask("Nachname", default=existing.get("last_name")).strip()
+    if not first_name:
+        raise UsageError("Vorname darf nicht leer sein.")
+    if not last_name:
+        raise UsageError("Nachname darf nicht leer sein.")
+    status_group = _ask_status_group(existing.get("status_group"))
+    if not password and not existing.get("login_password"):
+        raise UsageError("Passwort darf nicht leer sein.")
+
+    values: dict[str, Any] = {
+        "login_user": login_user,
+        "status_group": status_group,
+        "first_name": first_name,
+        "last_name": last_name,
+    }
+    if password:
+        values["login_password"] = password
+    entry = config_mod.save_portal(portal.id, values)
+    return {
+        "portal": portal.id,
+        "portal_name": portal.name,
+        "saved": True,
+        "login_user": login_user,
+        "first_name": first_name,
+        "last_name": last_name,
+        "status_group": status_group,
+        "password_store": entry.get("password_store"),
+    }
+
+
+def _cmd_login(portal: Portal, as_json: bool) -> int:
+    if not prompts.is_tty():
+        raise UsageError(
+            "hsport login braucht ein Terminal; für Agenten Env-Variablen "
+            "HS_LOGIN_USER … setzen"
+        )
+    payload = _login_interactive(portal)
+    _emit(payload, as_json, text=f"Login für {portal.name} gespeichert.")
+    return EXIT_OK
+
+
+def _cmd_logout(portal: Portal, as_json: bool) -> int:
+    config_mod.clear(portal.id)
+    payload = {"portal": portal.id, "cleared": True}
+    _emit(payload, as_json, text=f"Login für {portal.name} gelöscht.")
+    return EXIT_OK
+
+
+def _format_whoami(payload: dict[str, Any]) -> str:
+    sources = payload.get("sources") or {}
+
+    def source(field: str) -> str:
+        return sources.get(field) or "fehlt"
+
+    lines = [
+        f"Portal: {payload.get('portal')} ({payload.get('portal_name')})",
+        f"Login: {payload.get('login_user') or '–'} ({source('login_user')})",
+        f"Name: {payload.get('name') or '–'} ({source('first_name')}/{source('last_name')})",
+        f"Statusgruppe: {payload.get('status_group') or '–'} ({source('status_group')})",
+        f"E-Mail: {payload.get('email') or '–'} ({source('email')})",
+        f"Passwort: {_password_label(payload.get('password') or {})}",
+    ]
+    return "\n".join(lines)
+
+
+def _cmd_whoami(portal: Portal, as_json: bool) -> int:
+    values: dict[str, Any] = {}
+    sources: dict[str, Any] = {}
+    for field in ("login_user", "status_group", "first_name", "last_name", "email"):
+        value, origin = _credential_value(portal.id, field)
+        values[field] = value
+        sources[field] = origin
+    password = _password_info(portal.id)
+    sources["login_password"] = password.get("source")
+    first_name = values.get("first_name")
+    last_name = values.get("last_name")
+    name = " ".join(part for part in (first_name, last_name) if part) or None
+    payload = {
+        "portal": portal.id,
+        "portal_name": portal.name,
+        "login_user": values.get("login_user"),
+        "name": name,
+        "first_name": first_name,
+        "last_name": last_name,
+        "status_group": values.get("status_group"),
+        "email": values.get("email"),
+        "password": password,
+        "sources": sources,
+    }
+    _emit(payload, as_json, text=_format_whoami(payload))
+    return EXIT_OK
+
+
+def _format_config(payload: dict[str, Any]) -> str:
+    default = payload.get("default_portal")
+    lines = [
+        f"Config: {payload.get('config_path')}",
+        f"Default-Portal: {default or '(nicht gesetzt)'}",
+        f"Aktives Portal: {payload.get('resolved_portal') or DEFAULT_PORTAL_ID}",
+    ]
+    portals = payload.get("portals") or {}
+    if not portals:
+        lines.append("Portale: (keine gespeichert)")
+        return "\n".join(lines)
+    lines.append("Portale:")
+    for portal_id, entry in portals.items():
+        parts = [f"Login {entry.get('login_user') or '–'}"]
+        if entry.get("status_group"):
+            parts.append(f"Statusgruppe {entry['status_group']}")
+        parts.append(f"Passwort {entry.get('password') or 'fehlt'}")
+        lines.append(f"  {portal_id}: " + ", ".join(parts))
+    return "\n".join(lines)
+
+
+def _cmd_config_show(as_json: bool) -> int:
+    config = config_mod.load()
+    default = config.get("default_portal")
+    try:
+        resolved = resolve_portal(default).id
+    except CliError:
+        resolved = DEFAULT_PORTAL_ID
+    portals: dict[str, Any] = {}
+    for portal_id, entry in config["portals"].items():
+        item = {key: value for key, value in entry.items() if key != "login_password"}
+        if entry.get("password_store") == "keyring":
+            item["password"] = "gespeichert (keyring)"
+        elif entry.get("login_password") or entry.get("password_store") == "file":
+            item["password"] = "gespeichert (Datei)"
+        else:
+            item["password"] = "fehlt"
+        portals[portal_id] = item
+    payload = {
+        "default_portal": default,
+        "resolved_portal": resolved,
+        "config_path": str(config_mod.config_path()),
+        "portals": portals,
+    }
+    _emit(payload, as_json, text=_format_config(payload))
+    return EXIT_OK
+
+
+def _cmd_config_portal(portal_id: str, as_json: bool) -> int:
+    portal = resolve_portal(portal_id)
+    config = config_mod.load()
+    config["default_portal"] = portal.id
+    config_mod.save(config)
+    payload = {
+        "default_portal": portal.id,
+        "portal_name": portal.name,
+        "config_path": str(config_mod.config_path()),
+    }
+    _emit(payload, as_json, text=f"Default-Portal: {portal.id} ({portal.name})")
+    return EXIT_OK
 
 
 def _add_globals(parser: argparse.ArgumentParser) -> None:
@@ -192,6 +448,23 @@ def _main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("portals", help="Bekannte Portale mit Erreichbarkeit")
 
+    sub.add_parser(
+        "login",
+        help="Login-Daten für das aktuelle Portal interaktiv speichern",
+    )
+    sub.add_parser(
+        "logout",
+        help="Gespeicherte Login-Daten des aktuellen Portals löschen",
+    )
+    sub.add_parser(
+        "whoami",
+        help="Gespeicherte Identität anzeigen (Passwort nur als Status)",
+    )
+    config_p = sub.add_parser("config", help="Konfiguration anzeigen")
+    config_sub = config_p.add_subparsers(dest="config_command")
+    config_portal_p = config_sub.add_parser("portal", help="Default-Portal setzen")
+    config_portal_p.add_argument("portal_id", metavar="ID", help="Portal-ID oder URL")
+
     sports_p = sub.add_parser("sports", help="Sportarten des Portals")
     sports_p.add_argument("--query", metavar="TEXT", help="Filter (Substring, case-insensitive)")
 
@@ -256,6 +529,20 @@ def _main(argv: list[str] | None = None) -> int:
     if isinstance(portal_or_code, int):
         return portal_or_code
     portal = portal_or_code
+
+    if args.command == "login":
+        return _cmd_login(portal, as_json)
+
+    if args.command == "logout":
+        return _cmd_logout(portal, as_json)
+
+    if args.command == "whoami":
+        return _cmd_whoami(portal, as_json)
+
+    if args.command == "config":
+        if getattr(args, "config_command", None) == "portal":
+            return _cmd_config_portal(args.portal_id, as_json)
+        return _cmd_config_show(as_json)
 
     if args.command == "portals":
         return _run(cmd_portals, as_json, client=client)

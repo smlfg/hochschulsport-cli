@@ -16,13 +16,22 @@ from .parser import clean
 from .portals import Portal
 
 # Env-Namen: REQUIREMENTS + HSPORT_*-Alias (Personendaten).
-_ENV_LOGIN_USER = ("HS_LOGIN_USER", "HSPORT_LOGIN_USER")
-_ENV_LOGIN_PASSWORD = ("HS_LOGIN_PASSWORD", "HSPORT_LOGIN_PASSWORD")
-_ENV_STATUS_GROUP = ("HS_STATUSGRUPPE", "HSPORT_STATUSGRUPPE")
-_ENV_FIRSTNAME = ("HSPORT_FIRSTNAME",)
-_ENV_LASTNAME = ("HSPORT_LASTNAME",)
-_ENV_EMAIL = ("HS_BOOKING_EMAIL", "HSPORT_EMAIL")
-_ENV_SESSION_FILE = ("HS_SESSION_FILE",)
+ENV_FIELDS: dict[str, tuple[str, ...]] = {
+    "login_user": ("HS_LOGIN_USER", "HSPORT_LOGIN_USER"),
+    "login_password": ("HS_LOGIN_PASSWORD", "HSPORT_LOGIN_PASSWORD"),
+    "status_group": ("HS_STATUSGRUPPE", "HSPORT_STATUSGRUPPE"),
+    "first_name": ("HSPORT_FIRSTNAME",),
+    "last_name": ("HSPORT_LASTNAME",),
+    "email": ("HS_BOOKING_EMAIL", "HSPORT_EMAIL"),
+    "session_file": ("HS_SESSION_FILE",),
+}
+_ENV_LOGIN_USER = ENV_FIELDS["login_user"]
+_ENV_LOGIN_PASSWORD = ENV_FIELDS["login_password"]
+_ENV_STATUS_GROUP = ENV_FIELDS["status_group"]
+_ENV_FIRSTNAME = ENV_FIELDS["first_name"]
+_ENV_LASTNAME = ENV_FIELDS["last_name"]
+_ENV_EMAIL = ENV_FIELDS["email"]
+_ENV_SESSION_FILE = ENV_FIELDS["session_file"]
 
 
 def _env_first(names: tuple[str, ...]) -> str | None:

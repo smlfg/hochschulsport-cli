@@ -45,8 +45,14 @@ from .portals import (
 
 
 def portal_from_env() -> Portal:
+    """--portal > HS_PORTAL > Config-Default > stuttgart."""
     raw = os.environ.get("HS_PORTAL") or os.environ.get("HS_BASE_URL")
-    return resolve_portal(raw)
+    if raw:
+        return resolve_portal(raw)
+    from .config import load as load_config
+
+    default = load_config().get("default_portal")
+    return resolve_portal(default)
 
 
 def normalize_day(raw: str | None) -> str | None:
