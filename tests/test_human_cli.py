@@ -246,7 +246,7 @@ def test_book_per_name_auswahl_nein_ohne_post(
     assert main(["book", "bogensport"]) == 0
     captured = capsys.readouterr()
     assert client.post_calls == []
-    assert "Nicht gebucht" in captured.out
+    assert "Abgebrochen, nichts gebucht." in captured.out
     assert any("Nummer wählen" in question for question in asked)
     assert "[1] 50100 Testkurs 50100" in captured.out
     assert "30,00 € (Studierende)" in captured.out
