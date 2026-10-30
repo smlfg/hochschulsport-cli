@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="de"><head><meta charset="UTF-8" /><title>Kursbuchung</title></head><body>
+<div id="bs_content">
+<div class="bs_head">Kursbuchung</div>
+<div class="bs_text">Volleyball LS3 hohes Spielniveau / Advanced (32304)</div>
+<form method="post" action="/cgi/anmeldung.fcgi">
+<input type="hidden" name="BS_Code" value="DUMMY" />
+<input type="hidden" name="BS_Kursid_31584" value="32304" />
+<label for="statusorig">Statusgruppe</label>
+<select id="statusorig" name="statusorig" required>
+<option value="1" selected="selected">Studierende</option>
+<option value="2">Beschäftigte</option>
+<option value="3">Externe</option>
+</select>
+<label for="vorname">Vorname</label>
+<input id="vorname" name="vorname" type="text" value="" required="required" />
+<label for="name">Name</label>
+<input id="name" name="name" type="text" value="" required="required" />
+<label for="email">E-Mail</label>
+<input id="email" name="email" type="email" value="" required="required" />
+<label for="tnbed"><input id="tnbed" name="tnbed" type="checkbox" value="1" required="required" /> AGB und Teilnahmebedingungen akzeptieren</label>
+<button type="submit" name="BS_Weiter" value="weiter">Weiter</button>
+</form>
+</div></body></html>
