@@ -201,3 +201,34 @@ def test_cli_json_erfolg_mit_bestaetigung(monkeypatch, capsys):
     assert payload["confirmed"] is True
     assert payload["steps"] == ["kurs_waehlen", "daten", "verbindlich"]
     assert payload["buchungsnummer"] is None
+
+
+def test_cli_json_fehler_nennt_schritt_und_confirmed_false(monkeypatch, capsys):
+    client = FlowClient([_fixture("step1_formular.html")])
+    monkeypatch.setattr("hochschulsport_cli.cli.HttpClient", lambda *a, **k: client)
+    monkeypatch.setattr(
+        "hochschulsport_cli.cli.load_courses_for_sport",
+        lambda portal, http, name: [_course()],
+    )
+    monkeypatch.setattr(prompts, "is_tty", lambda: False)
+    for key, value in {
+        "HS_LOGIN_USER": "max",
+        "HS_LOGIN_PASSWORD": "geheim",
+        "HS_STATUSGRUPPE": "Studierende",
+        "HSPORT_FIRSTNAME": "Max",
+        "HSPORT_LASTNAME": "Beispiel",
+    }.items():
+        monkeypatch.setenv(key, value)
+    monkeypatch.delenv("HS_BOOKING_EMAIL", raising=False)
+    monkeypatch.delenv("HSPORT_EMAIL", raising=False)
+
+    assert main(["book", "volleyball", "--confirm", "--json"]) == 1
+    captured = capsys.readouterr()
+    data = json.loads(captured.err)
+    assert data["error"]["kind"] == "usage"
+    assert data["confirmed"] is False
+    assert data["submitted"] is False
+    assert data["steps"] == ["kurs_waehlen"]
+    assert data["step"] == "daten"
+    assert "email" in data["error"]["message"]
+    assert len(client.post_calls) == 1
