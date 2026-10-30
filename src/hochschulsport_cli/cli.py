@@ -22,11 +22,14 @@ from .api import (
     cmd_portals,
     cmd_sports,
     cmd_watch,
+    load_courses_for_sport,
     portal_from_env,
 )
 from .booking import ENV_FIELDS
+from .course_resolve import resolve_course
 from .errors import CliError, EXIT_OK, EXIT_USAGE, UsageError
 from .http_client import HttpClient
+from .models import STATUS_BOOKABLE, Course
 from .portals import DEFAULT_PORTAL_ID, Portal, resolve_portal
 
 
@@ -338,6 +341,272 @@ def _cmd_config_portal(portal_id: str, as_json: bool) -> int:
     return EXIT_OK
 
 
+def _format_eur(value: float | None) -> str:
+    if value is None:
+        return "–"
+    return f"{value:.2f}".replace(".", ",") + " €"
+
+
+def _price_label(course: Course, status_group: str | None) -> str:
+    if not course.prices:
+        return "Preis unbekannt"
+    if status_group:
+        needle = status_group.strip().casefold()
+        for price in course.prices:
+            group = (price.group or "").strip()
+            folded = group.casefold()
+            if folded and (folded == needle or needle in folded or folded in needle):
+                return f"{_format_eur(price.price_eur)} ({group})"
+    labels = []
+    for price in course.prices:
+        amount = _format_eur(price.price_eur)
+        labels.append(f"{amount} ({price.group})" if price.group else amount)
+    return ", ".join(labels)
+
+
+def _course_choice_line(
+    index: int, course: Course, status_group: str | None
+) -> str:
+    title = course.title or course.sport or ""
+    day_time = " ".join(part for part in (course.day, course.time) if part) or "–"
+    return (
+        f"[{index}] {course.course_nr} {title} | {day_time} | "
+        f"{course.location or '–'} | {_price_label(course, status_group)} | "
+        f"{course.booking_status}"
+    )
+
+
+def _print_course_choices(courses: list[Course], status_group: str | None) -> None:
+    for index, course in enumerate(courses, 1):
+        sys.stdout.write(_course_choice_line(index, course, status_group) + "\n")
+
+
+def _choose_course(
+    courses: list[Course], status_group: str | None
+) -> Course | None:
+    _print_course_choices(courses, status_group)
+    raw = prompts.ask("Nummer wählen [1-n, Enter=Abbruch]").strip()
+    if not raw:
+        return None
+    try:
+        index = int(raw)
+    except ValueError:
+        raise UsageError("Ungültige Auswahl: bitte eine Nummer aus der Liste angeben.")
+    if index < 1 or index > len(courses):
+        raise UsageError(f"Ungültige Auswahl: 1–{len(courses)} erwartet.")
+    return courses[index - 1]
+
+
+def _decorate_book_payload(
+    payload: dict[str, Any],
+    portal: Portal,
+    course: Course,
+    status_group: str | None,
+    credentials: Any | None,
+    target: str,
+) -> None:
+    if credentials is not None and credentials.status_group:
+        status_group = credentials.status_group
+    if credentials is not None:
+        name = f"{credentials.first_name} {credentials.last_name}".strip()
+    else:
+        name = _display_name(portal.id) or ""
+    payload.update(
+        {
+            "portal": portal.id,
+            "portal_name": portal.name,
+            "course_nr": course.course_nr,
+            "title": course.title,
+            "day": course.day,
+            "time": course.time,
+            "location": course.location,
+            "period": course.period,
+            "price": _price_label(course, status_group),
+            "name": name or None,
+            "status_group": status_group,
+            "target": target,
+            "selected_by": "number" if target.isdigit() else "name",
+        }
+    )
+
+
+def _book_summary_lines(payload: dict[str, Any]) -> list[str]:
+    title = payload.get("title") or ""
+    course = f"{payload.get('course_nr')} {title}".strip()
+    portal = payload.get("portal") or ""
+    portal_name = payload.get("portal_name") or ""
+    return [
+        f"Kurs: {course}",
+        f"Tag: {payload.get('day') or '–'}",
+        f"Zeit: {payload.get('time') or '–'}",
+        f"Ort: {payload.get('location') or '–'}",
+        f"Zeitraum: {payload.get('period') or '–'}",
+        f"Preis: {payload.get('price') or '–'}",
+        f"Name: {payload.get('name') or '–'}",
+        f"Statusgruppe: {payload.get('status_group') or '–'}",
+        f"Portal: {portal} ({portal_name})".rstrip(),
+    ]
+
+
+def _print_book_summary(payload: dict[str, Any]) -> None:
+    sys.stdout.write("\n".join(_book_summary_lines(payload)) + "\n")
+
+
+def _format_book_text(payload: dict[str, Any]) -> str:
+    lines = _book_summary_lines(payload)
+    if payload.get("confirmed") is False:
+        lines.append("Nicht gebucht (Trockenlauf) – keine Buchung gesendet.")
+    elif payload.get("dry_run"):
+        lines.append("Trockenlauf – keine Buchung gesendet.")
+    elif payload.get("submitted"):
+        lines.append("Buchung gesendet.")
+    else:
+        lines.append("Keine Buchung gesendet.")
+    return "\n".join(lines)
+
+
+def _login_missing_message() -> str:
+    return (
+        "Login fehlt – einmal `hsport login` ausführen (oder für Agenten "
+        "Env HS_LOGIN_USER, HS_LOGIN_PASSWORD, HS_STATUSGRUPPE, "
+        "HSPORT_FIRSTNAME, HSPORT_LASTNAME setzen)."
+    )
+
+
+_DEFAULT_LOAD_COURSES_FOR_SPORT = load_courses_for_sport
+
+
+def _book_courses(
+    portal: Portal, client: HttpClient, sport_name: str
+) -> list[Course]:
+    if load_courses_for_sport is not _DEFAULT_LOAD_COURSES_FOR_SPORT:
+        return load_courses_for_sport(portal, client, sport_name)
+    from . import api as api_mod
+
+    return api_mod.load_courses_for_sport(portal, client, sport_name)
+
+
+def _ensure_book_credentials(
+    portal: Portal, interactive: bool
+) -> Any:
+    from .booking import load_booking_credentials
+
+    try:
+        return load_booking_credentials(portal.id)
+    except UsageError:
+        if interactive and prompts.confirm(
+            "Login fehlt. Jetzt `hsport login` starten?", default=True
+        ):
+            _login_interactive(portal)
+            return load_booking_credentials(portal.id)
+        raise UsageError(_login_missing_message())
+
+
+def _handle_book(
+    portal: Portal,
+    client: HttpClient,
+    args: argparse.Namespace,
+    as_json: bool,
+) -> int:
+    target = args.course_nr.strip()
+    confirm = bool(args.confirm or getattr(args, "yes", False))
+    interactive = prompts.is_tty() and not as_json
+    credentials = None
+
+    # --confirm/--yes: Login vor jedem Request prüfen (Agenten ohne TTY).
+    if confirm:
+        credentials = _ensure_book_credentials(portal, interactive)
+
+    status_group = _status_group(portal.id)
+    course: Course | None = None
+
+    if target.isdigit():
+        course = resolve_course(portal, client, target)
+    else:
+        courses = _book_courses(portal, client, target)
+        if not courses:
+            raise UsageError(f"Keine Kurse für Sportart {target!r} gefunden.")
+        bookable = [c for c in courses if c.booking_status == STATUS_BOOKABLE]
+        if not bookable:
+            if not as_json:
+                _print_course_choices(courses, status_group)
+            statuses = ", ".join(
+                f"{c.course_nr} ({c.booking_status})" for c in courses
+            )
+            raise UsageError(
+                f"Keine buchbaren Kurse für {target!r}: {statuses}. "
+                "Mit `hsport watch <kursnr>` Status beobachten."
+            )
+        if len(bookable) == 1:
+            course = bookable[0]
+        elif not interactive:
+            if not as_json:
+                _print_course_choices(bookable, status_group)
+            raise UsageError(
+                "Mehrere buchbare Kurse gefunden – bitte Kursnummer angeben: "
+                "hsport book <kursnr>."
+            )
+        else:
+            course = _choose_course(bookable, status_group)
+            if course is None:
+                _emit(
+                    {
+                        "portal": portal.id,
+                        "cancelled": True,
+                        "dry_run": True,
+                        "submitted": False,
+                    },
+                    as_json,
+                    text="Abgebrochen.",
+                )
+                return EXIT_OK
+
+    if interactive and credentials is None:
+        credentials = _ensure_book_credentials(portal, interactive)
+        status_group = credentials.status_group
+
+    summary: dict[str, Any] = {}
+    _decorate_book_payload(summary, portal, course, status_group, credentials, target)
+
+    if interactive:
+        _print_book_summary(summary)
+        if not confirm:
+            if not prompts.confirm("Jetzt verbindlich buchen?", default=False):
+                payload = cmd_book(
+                    portal,
+                    client,
+                    course_nr=course.course_nr,
+                    confirm=False,
+                    course=course,
+                )
+                _decorate_book_payload(
+                    payload, portal, course, status_group, credentials, target
+                )
+                payload["confirmed"] = False
+                _emit(
+                    payload,
+                    as_json,
+                    text="Nicht gebucht (Trockenlauf) – keine Buchung gesendet.",
+                )
+                return EXIT_OK
+            confirm = True
+
+    payload = cmd_book(
+        portal,
+        client,
+        course_nr=course.course_nr,
+        confirm=confirm,
+        credentials=credentials,
+        course=course,
+    )
+    _decorate_book_payload(payload, portal, course, status_group, credentials, target)
+    if interactive:
+        text = "Buchung gesendet." if confirm else "Keine Buchung gesendet."
+    else:
+        text = _format_book_text(payload)
+    _emit(payload, as_json, text=text)
+    return EXIT_OK
+
 def _add_globals(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--json", action="store_true", help="JSON auf stdout")
     parser.add_argument(
@@ -588,14 +857,7 @@ def _main(argv: list[str] | None = None) -> int:
         return exit_code
 
     if args.command == "book":
-        return _run(
-            cmd_book,
-            as_json,
-            portal=portal,
-            client=client,
-            course_nr=args.course_nr,
-            confirm=args.confirm,
-        )
+        return _handle_book(portal, client, args, as_json)
 
     return _fail(CliError(f"Unbekannter Befehl: {args.command}"), as_json)
 

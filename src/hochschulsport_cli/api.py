@@ -12,6 +12,7 @@ from .errors import CliError, EXIT_OK, ParseError, UsageError
 from .http_client import HttpClient
 from .models import DAY_ALIASES, DAYS, STATUS_BOOKABLE, Course, Sport
 from .booking import (
+    BookingCredentials,
     ensure_bookable,
     load_booking_credentials,
     parse_booking_form,
@@ -285,6 +286,13 @@ def _load_sport_pages_by_name(
     return courses
 
 
+def load_courses_for_sport(
+    portal: Portal, client: HttpClient, sport_name: str
+) -> list[Course]:
+    """Kurse einer Sportart (Substring-Auflösung wie ``cmd_courses``)."""
+    return _load_sport_pages_by_name(portal, client, sport_name)
+
+
 def _enrich_from_sport_pages(
     portal: Portal,
     client: HttpClient,
@@ -433,13 +441,15 @@ def cmd_book(
     *,
     course_nr: str,
     confirm: bool = False,
+    credentials: BookingCredentials | None = None,
+    course: Course | None = None,
 ) -> dict[str, Any]:
-    if confirm:
+    if confirm and credentials is None:
         credentials = load_booking_credentials(portal.id)
-    else:
-        credentials = None
 
-    course = resolve_course(portal, client, course_nr)
+    if course is None:
+        course = resolve_course(portal, client, course_nr)
+    course_nr = course.course_nr
     ensure_bookable(course.booking_status, course_nr)
 
     slug = sport_filename(course.sport)
