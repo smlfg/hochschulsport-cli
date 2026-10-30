@@ -9,7 +9,7 @@ from typing import Any
 
 from bs4 import BeautifulSoup
 
-from .errors import AuthError, ForbiddenError, UsageError
+from .errors import AuthError, CliError, ForbiddenError, UsageError
 from .http_client import HttpClient
 from .models import STATUS_BOOKABLE
 from .parser import clean
@@ -83,29 +83,40 @@ def required_env_field_names() -> list[str]:
     ]
 
 
-def load_booking_credentials() -> BookingCredentials:
-    """Liest Pflichtwerte aus der Umgebung. Wirft ``UsageError`` wenn etwas fehlt."""
-    missing = []
-    login_user = _env_first(_ENV_LOGIN_USER)
-    if not login_user:
-        missing.append("HS_LOGIN_USER")
-    login_password = _env_first(_ENV_LOGIN_PASSWORD)
-    if not login_password:
-        missing.append("HS_LOGIN_PASSWORD")
-    status_group = _env_first(_ENV_STATUS_GROUP)
-    if not status_group:
-        missing.append("HS_STATUSGRUPPE")
-    first_name = _env_first(_ENV_FIRSTNAME)
-    if not first_name:
-        missing.append("HSPORT_FIRSTNAME")
-    last_name = _env_first(_ENV_LASTNAME)
-    if not last_name:
-        missing.append("HSPORT_LASTNAME")
-    if missing:
+def load_booking_credentials(portal_id: str | None = None) -> BookingCredentials:
+    """Liest Pflichtwerte: Env zuerst, sonst Config des Portals.
+
+    Fehlt etwas, wird **kein** Request gesendet. Agenten können alle Werte per
+    Env setzen; Menschen nutzen vorher ``hsport login``.
+    """
+    entry: dict[str, Any] = {}
+    if portal_id:
+        from .config import load_portal
+
+        try:
+            entry = load_portal(portal_id)
+        except CliError:
+            entry = {}
+
+    def value(field: str) -> str | None:
+        env_value = _env_first(ENV_FIELDS[field])
+        if env_value:
+            return env_value
+        raw = entry.get(field)
+        if isinstance(raw, str) and raw.strip():
+            return raw.strip()
+        return None
+
+    login_user = value("login_user")
+    login_password = value("login_password")
+    status_group = value("status_group")
+    first_name = value("first_name")
+    last_name = value("last_name")
+    if not all((login_user, login_password, status_group, first_name, last_name)):
         raise UsageError(
-            "Für --confirm fehlen Umgebungsvariablen: "
-            + ", ".join(missing)
-            + ". Es wurde kein Request gesendet."
+            "Login fehlt – einmal `hsport login` ausführen (oder für Agenten "
+            "Env HS_LOGIN_USER, HS_LOGIN_PASSWORD, HS_STATUSGRUPPE, "
+            "HSPORT_FIRSTNAME, HSPORT_LASTNAME setzen)."
         )
     return BookingCredentials(
         login_user=login_user,
@@ -113,7 +124,7 @@ def load_booking_credentials() -> BookingCredentials:
         status_group=status_group,
         first_name=first_name,
         last_name=last_name,
-        email=_env_first(_ENV_EMAIL),
+        email=value("email"),
         session_file=_env_first(_ENV_SESSION_FILE),
     )
 

@@ -435,7 +435,7 @@ def cmd_book(
     confirm: bool = False,
 ) -> dict[str, Any]:
     if confirm:
-        credentials = load_booking_credentials()
+        credentials = load_booking_credentials(portal.id)
     else:
         credentials = None
 
