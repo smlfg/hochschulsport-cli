@@ -38,12 +38,14 @@ class CliError(Exception):
         course_nr: str | None = None,
         exit_code: int | None = None,
         kind: str | None = None,
+        extra: dict[str, object] | None = None,
     ) -> None:
         super().__init__(message)
         self.message = message
         self.portal = portal
         self.url = url
         self.course_nr = course_nr
+        self.extra = dict(extra or {})
         if exit_code is not None:
             self.exit_code = exit_code
         if kind is not None:
@@ -62,7 +64,9 @@ class CliError(Exception):
             error["url"] = self.url
         if self.course_nr is not None:
             error["course_nr"] = self.course_nr
-        return {"error": error}
+        payload: dict[str, object] = {"error": error}
+        payload.update(self.extra)
+        return payload
 
 
 class UsageError(CliError):

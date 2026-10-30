@@ -501,12 +501,15 @@ def _format_book_text(
 ) -> str:
     lines = [notice] if notice else []
     lines.extend(_book_summary_lines(payload))
-    if payload.get("confirmed") is False:
-        lines.append("Nicht gebucht (Trockenlauf) – keine Buchung gesendet.")
-    elif payload.get("dry_run"):
+    if payload.get("confirmed") is True:
+        text = "Buchung bestätigt."
+        if payload.get("buchungsnummer"):
+            text += f" Buchungsnummer: {payload['buchungsnummer']}"
+        lines.append(text)
+    elif payload.get("dry_run") or payload.get("confirmed") is False:
         lines.append("Trockenlauf – keine Buchung gesendet.")
     elif payload.get("submitted"):
-        lines.append("Buchung gesendet.")
+        lines.append("Buchung nicht bestätigt.")
     else:
         lines.append("Keine Buchung gesendet.")
     return "\n".join(lines)
@@ -635,23 +638,18 @@ def _handle_book(
             sys.stdout.write(single_notice + "\n")
         _print_book_summary(summary)
         if not confirm:
-            if not prompts.confirm("Jetzt verbindlich buchen?", default=False):
-                payload = cmd_book(
-                    portal,
-                    client,
-                    course_nr=course.course_nr,
-                    confirm=False,
-                    course=course,
-                )
+            if not prompts.confirm("Verbindlich buchen?", default=False):
+                payload: dict[str, Any] = {
+                    "portal": portal.id,
+                    "cancelled": True,
+                    "dry_run": True,
+                    "submitted": False,
+                    "confirmed": False,
+                }
                 _decorate_book_payload(
                     payload, portal, course, status_group, credentials, target
                 )
-                payload["confirmed"] = False
-                _emit(
-                    payload,
-                    as_json,
-                    text="Nicht gebucht (Trockenlauf) – keine Buchung gesendet.",
-                )
+                _emit(payload, as_json, text="Abgebrochen, nichts gebucht.")
                 return EXIT_OK
             confirm = True
 
@@ -665,7 +663,12 @@ def _handle_book(
     )
     _decorate_book_payload(payload, portal, course, status_group, credentials, target)
     if interactive:
-        text = "Buchung gesendet." if confirm else "Keine Buchung gesendet."
+        if payload.get("confirmed") is True:
+            text = "Buchung bestätigt."
+            if payload.get("buchungsnummer"):
+                text += f" Buchungsnummer: {payload['buchungsnummer']}"
+        else:
+            text = "Keine Buchung bestätigt."
     else:
         text = _format_book_text(payload, notice=single_notice)
     _emit(payload, as_json, text=text)
