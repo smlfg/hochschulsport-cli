@@ -160,10 +160,14 @@ def _password_label(info: dict[str, Any]) -> str:
 def _ask_status_group(existing: str | None) -> str:
     default_index = "1"
     if existing:
-        for index, label in STATUS_GROUP_CHOICES:
-            if existing.strip().casefold() == label.casefold():
-                default_index = index
-                break
+        raw = existing.strip()
+        if raw in {index for index, _ in STATUS_GROUP_CHOICES}:
+            default_index = raw
+        else:
+            for index, label in STATUS_GROUP_CHOICES:
+                if raw.casefold() == label.casefold():
+                    default_index = index
+                    break
     sys.stdout.write("Statusgruppe:\n")
     for index, label in STATUS_GROUP_CHOICES:
         sys.stdout.write(f"  {index}) {label}\n")
@@ -352,6 +356,11 @@ def _price_label(course: Course, status_group: str | None) -> str:
         return "Preis unbekannt"
     if status_group:
         needle = status_group.strip().casefold()
+        needle = {
+            "1": "studierende",
+            "2": "beschäftigte",
+            "3": "externe",
+        }.get(needle, needle)
         for price in course.prices:
             group = (price.group or "").strip()
             folded = group.casefold()
