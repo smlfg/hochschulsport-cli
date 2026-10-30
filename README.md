@@ -3,7 +3,7 @@
 ## Schnellstart (für Menschen)
 
 ```bash
-pipx install git+https://github.com/smlfg/hochschulsport-cli   # empfohlen, landet im PATH
+pipx install git+https://github.com/smlfg/hochschulsport-cli
 hsport login
 hsport book volleyball
 hsport config portal hamburg

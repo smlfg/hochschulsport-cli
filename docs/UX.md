@@ -77,17 +77,16 @@ $ hsport courses --query volleyball
 
 ## Sitzung 3 – Buchung bis zur verbindlichen Bestätigung
 
-Der Mensch sieht die gefundenen buchbaren Kurse, wählt die Nummer, prüft die
-Zusammenfassung und bestätigt erst danach verbindlich. Nach `j` werden alle
+Der Mensch sieht den gefundenen buchbaren Kurs, prüft die Zusammenfassung und
+bestätigt erst danach verbindlich. Gibt es genau einen buchbaren Treffer, wählt
+die CLI ihn direkt aus und weist auf die übrigen (nicht buchbaren) Treffer hin;
+bei mehreren Treffern folgt zusätzlich eine Nummernabfrage. Nach `j` werden alle
 Formularschritte bis zur endgültigen Buchung gesendet; erst danach erscheint die
 Erfolgsmeldung. Bei `N` wird kein Formularschritt gesendet.
 
 ```ux-session
 $ hsport book volleyball
 < 1 buchbarer Kurs
-< 32304
-< Nummer wählen [1-n, Enter=Abbruch]
-> 1
 < Kurs: 32304 Volleyball LS3 hohes Spielniveau / Advanced
 < Tag: Mi
 < Zeit: 19:30-21:30
