@@ -15,6 +15,7 @@ import sys
 import tempfile
 import time
 from dataclasses import dataclass, field
+from html.parser import HTMLParser
 from pathlib import Path
 
 try:
@@ -73,6 +74,91 @@ class _AnsiStripper:
 
 def strip_ansi(text: str) -> str:
     return _AnsiStripper().feed(text)
+
+
+class _FormFieldParser(HTMLParser):
+    """Sammelt Namen und required-Markierung aller Formularfelder."""
+
+    SKIP_INPUT_TYPES = {"submit", "button", "reset", "image"}
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.depth = 0
+        self.fields: list[tuple[str, bool]] = []
+
+    def handle_starttag(self, tag, attrs) -> None:
+        if tag == "form":
+            self.depth += 1
+            return
+        if not self.depth:
+            return
+        values = {name.lower(): (value or "") for name, value in attrs}
+        name = values.get("name", "").strip()
+        if not name:
+            return
+        if tag == "input":
+            kind = values.get("type", "text").lower()
+            if kind in self.SKIP_INPUT_TYPES:
+                return
+            if kind in {"checkbox", "radio"} and "required" not in values:
+                return
+        elif tag not in {"select", "textarea"}:
+            return
+        self.fields.append((name, "required" in values))
+
+    def handle_endtag(self, tag) -> None:
+        if tag == "form" and self.depth:
+            self.depth -= 1
+
+
+def form_fields(html: str) -> dict[str, bool]:
+    """Feldname -> required; leeres Ergebnis, wenn kein <form> gefunden wird."""
+    parser = _FormFieldParser()
+    try:
+        parser.feed(html)
+    except Exception:  # noqa: BLE001 - defektes HTML wird übersprungen
+        return {}
+    result: dict[str, bool] = {}
+    for name, required in parser.fields:
+        result[name] = result.get(name, False) or required
+    return result
+
+
+def check_previous_form_fields(spec: UxSpec, repo_dir, sent) -> list[str]:
+    """Prüft jeden formstep ab dem zweiten gegen das Formular davor."""
+    repo = Path(repo_dir)
+    records: dict[str, object] = {}
+    for step_id, record in sent:
+        records.setdefault(step_id, record)
+    fails: list[str] = []
+    for index, step in enumerate(spec.formsteps):
+        if index == 0 or step.id not in records:
+            continue
+        previous = spec.formsteps[index - 1]
+        if not previous.response:
+            continue
+        try:
+            html = (repo / previous.response).read_text(encoding="utf-8")
+        except OSError:
+            continue
+        fields = form_fields(html)
+        if not fields:
+            continue
+        record = records[step.id]
+        values = getattr(record, "values", {})
+        for name, required in fields.items():
+            submitted = values.get(name)
+            if submitted is None:
+                fails.append(
+                    f"formstep '{step.id}': Feld '{name}' aus dem Formular "
+                    f"von '{previous.id}' fehlt – fragt `login` danach?"
+                )
+            elif required and all(not str(value).strip() for value in submitted):
+                fails.append(
+                    f"formstep '{step.id}': Pflichtfeld '{name}' aus dem Formular "
+                    f"von '{previous.id}' leer – fragt `login` danach?"
+                )
+    return fails
 
 
 @dataclass
@@ -400,6 +486,106 @@ def run_session(
     run_label: str = "",
 ) -> SessionResult:
     return _run_session(spec, session, server, env, answer_override, run_label)
+
+
+CONFIRM_TEXT = "[j/N]"
+LOGIN_OFFER_RE = re.compile(r"(?i)\[\s*(?:j|ja)\s*(?:/\s*(?:n|nein))?\s*\]")
+
+
+def _login_offer(text: str):
+    for match in LOGIN_OFFER_RE.finditer(text):
+        context = text[max(0, match.start() - 200): match.end() + 200].lower()
+        if "login" in context or "anmeld" in context:
+            return match
+    return None
+
+
+def run_write_without_login(
+    spec: UxSpec,
+    session: Session,
+    server: FakeServer,
+    env: dict | None,
+    tool: str,
+) -> SessionResult:
+    """Spielt eine schreibende Sitzung ohne Login und ohne credential_env."""
+    merged = session_env(spec, server, env)
+    cwd = merged.get("UX_REPO_DIR") or None
+    fails: list[str] = []
+    parts: list[str] = []
+    current: PtySession | None = None
+
+    for step in session.steps:
+        if step.kind == "command":
+            if INSTALL_RE.match(step.text.strip()):
+                continue
+            if current is not None:
+                current.wait_exit(DEFAULT_TIMEOUT)
+                parts.append(current.transcript)
+                current.close()
+                current = None
+            current = PtySession(["/bin/sh", "-c", step.text], env=merged, cwd=cwd)
+            continue
+        if step.kind == "input":
+            if current is None:
+                continue
+            try:
+                current.send_line(step.text)
+            except OSError:
+                pass
+            continue
+        if step.kind in {"expect", "regex"} and CONFIRM_TEXT in step.text:
+            break
+
+    if current is None:
+        fails.append("kein ausführbarer Befehl in der Sitzung")
+    else:
+        deadline = time.monotonic() + DEFAULT_TIMEOUT
+        answered_login = False
+        while current.poll() is None and time.monotonic() < deadline:
+            current._read_once(min(0.2, max(0.0, deadline - time.monotonic())))
+            pending = current._pending
+            if CONFIRM_TEXT in pending:
+                fails.append(
+                    f"{CONFIRM_TEXT} ausgegeben, obwohl Login/Voraussetzungen fehlen"
+                )
+                if current.poll() is None:
+                    current.kill()
+                current._drain()
+                break
+            if not answered_login:
+                match = _login_offer(pending)
+                if match is not None:
+                    try:
+                        current.send_line("n")
+                    except OSError:
+                        pass
+                    answered_login = True
+                    current._pending = pending[match.end():]
+        code = current.wait_exit(DEFAULT_TIMEOUT)
+        parts.append(current.transcript)
+        if code is None:
+            fails.append("Befehl beendet sich nicht (Timeout)")
+        elif code == 0:
+            fails.append("Exit-Code 0, erwartet ≠ 0")
+        current.close()
+
+    transcript = "".join(parts)
+    clean = strip_ansi(transcript)
+    if "Traceback (most recent call last)" in clean:
+        fails.append("Traceback im Mitschnitt")
+    if f"{tool} login" not in clean:
+        fails.append(f"Ausgabe nennt nicht den Befehl `{tool} login`")
+    for step_id, _record in server.sent_formsteps():
+        step = _step_by_id(spec, step_id)
+        if step is not None and not step.before_confirm:
+            fails.append(f"formstep '{step_id}' ohne before_confirm gesendet")
+    return SessionResult(
+        ok=not fails,
+        fails=fails,
+        transcript=transcript,
+        title=session.title,
+        run="UX09a",
+    )
 
 
 def _step_by_id(spec: UxSpec, step_id: str):

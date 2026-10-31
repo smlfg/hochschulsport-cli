@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Maschinelles UX-Gate für CLIs (Prüfungen UX00–UX08 nach docs/FORMAT.md)."""
+"""Maschinelles UX-Gate für CLIs (Prüfungen UX00–UX09 nach docs/FORMAT.md)."""
 
 from __future__ import annotations
 
@@ -17,10 +17,12 @@ try:
         DEFAULT_TIMEOUT,
         PtySession,
         build_env,
+        check_previous_form_fields,
         check_write,
         free_local_port,
         install_fresh,
         run_session,
+        run_write_without_login,
         strip_ansi,
     )
     from ux_spec import (
@@ -36,10 +38,12 @@ except ImportError:  # pragma: no cover - Paketimport
         DEFAULT_TIMEOUT,
         PtySession,
         build_env,
+        check_previous_form_fields,
         check_write,
         free_local_port,
         install_fresh,
         run_session,
+        run_write_without_login,
         strip_ansi,
     )
     from .ux_spec import (
@@ -54,7 +58,7 @@ PASS, FAIL, SKIP = "PASS", "FAIL", "SKIP"
 CRED_RE = re.compile(r"(PASS|PASSWORD|PASSWORT|TOKEN|SECRET|USER|LOGIN|EMAIL|MAIL)", re.I)
 ENV_LITERAL_RE = re.compile(r'["\']([A-Z][A-Z0-9_]{2,})["\']')
 TOOL_CALL_RE = re.compile(r'os\.environ\.get\(\s*["\']([^"\']+)["\']|os\.getenv\(\s*["\']([^"\']+)["\']|os\.environ\[\s*["\']([^"\']+)["\']\s*\]')
-CHECK_IDS = ["UX00", "UX01", "UX02", "UX03", "UX04", "UX05", "UX06", "UX07", "UX08"]
+CHECK_IDS = ["UX00", "UX01", "UX02", "UX03", "UX04", "UX05", "UX06", "UX07", "UX08", "UX09"]
 
 
 @dataclass
@@ -484,6 +488,88 @@ def _check_ux07_08(rows: dict[str, CheckRow], ctx: Context) -> None:
         _row(rows, "UX08", True, "alle formsteps in Reihenfolge und mit allen Feldern gesendet")
 
 
+def _env_without_credentials(spec: UxSpec, env: dict[str, str] | None) -> dict[str, str]:
+    cleaned = dict(env or {})
+    for name in (spec.meta or {}).get("credential_env", []):
+        cleaned.pop(str(name), None)
+    return cleaned
+
+
+def _fresh_env(ctx: Context) -> dict[str, str]:
+    home = tempfile.mkdtemp(prefix="ux09-home-", dir=_scratch_tmp())
+    env = build_env(ctx.spec, None, home, ctx.bin_dir, ctx.repo)
+    return _env_without_credentials(ctx.spec, env)
+
+
+def _login_session(ctx: Context):
+    pattern = re.compile(rf"^\s*{re.escape(ctx.tool)}\s+login\s*$")
+    for session in ctx.spec.sessions:
+        if any(pattern.match(command.strip()) for command in commands(session)):
+            return session
+    return None
+
+
+def _check_ux09(rows: dict[str, CheckRow], ctx: Context) -> None:
+    write_sessions = [
+        session for session in ctx.spec.sessions if is_write_session(session)
+    ]
+    if not write_sessions:
+        _skip(rows, "UX09", "keine schreibende Sitzung")
+        return
+
+    problems: list[str] = []
+    details: list[str] = []
+    login_session = _login_session(ctx)
+    for session in write_sessions:
+        env_a = _fresh_env(ctx)
+        with _new_server(ctx) as server:
+            fresh = run_write_without_login(
+                ctx.spec, session, server, env_a, ctx.tool
+            )
+        problems.extend(
+            f"(a) Sitzung {session.title!r}: {failure}"
+            for failure in fresh.fails
+        )
+        details.append(
+            f"## {session.title} – UX09a\n"
+            + "\n".join(f"- {failure}" for failure in fresh.fails)
+            + "\n\n```text\n"
+            + _tail(fresh.transcript, 20)
+            + "\n```"
+        )
+
+        env_b = _fresh_env(ctx)
+        if login_session is not None:
+            with _new_server(ctx) as server:
+                run_session(
+                    ctx.spec, login_session, server, env_b, run_label="UX09b-login"
+                )
+        with _new_server(ctx) as server:
+            run_session(ctx.spec, session, server, env_b, run_label="UX09b")
+            form_fails = check_previous_form_fields(
+                ctx.spec, ctx.repo, server.sent_formsteps()
+            )
+        problems.extend(
+            f"(b) Sitzung {session.title!r}: {failure}"
+            for failure in form_fails
+        )
+        details.append(
+            f"## {session.title} – UX09b\n"
+            + ("\n".join(f"- {failure}" for failure in form_fails) or "- OK")
+        )
+
+    if problems:
+        _row(rows, "UX09", False, "; ".join(problems), "\n\n".join(details))
+    else:
+        _row(
+            rows,
+            "UX09",
+            True,
+            f"{len(write_sessions)} schreibende Sitzung(en): Voraussetzungen vor "
+            "[j/N] und Login-Felder vollständig",
+        )
+
+
 def _check_ux00(rows: dict[str, CheckRow], ctx: Context) -> None:
     if not ctx.spec.routes and not ctx.spec.formsteps:
         _row(rows, "UX00", True, "keine ux-routes/ux-formsteps, kein Fake-Server nötig")
@@ -569,7 +655,7 @@ def _spec_only(rows: dict[str, CheckRow], ctx: Context) -> None:
             _row(rows, "UX07", False, "ux-formsteps vorhanden, aber keine Sitzung enthält „< [j/N]“")
     else:
         _row(rows, "UX07", True, "keine ux-formsteps, keine schreibende Aktion")
-    for cid in ("UX00", "UX02", "UX03", "UX04", "UX05", "UX08"):
+    for cid in ("UX00", "UX02", "UX03", "UX04", "UX05", "UX08", "UX09"):
         _skip(rows, cid, "übersprungen wegen --spec-only")
 
 
@@ -643,6 +729,7 @@ def main(argv: list[str] | None = None) -> int:
     _check_ux05(rows, ctx)
     _check_ux06(rows, ctx)
     _check_ux07_08(rows, ctx)
+    _check_ux09(rows, ctx)
     _check_ux00(rows, ctx)
 
     ux00 = rows.get("UX00")

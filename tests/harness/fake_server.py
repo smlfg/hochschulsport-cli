@@ -22,15 +22,17 @@ class Recorded:
     path: str
     query: str
     fields: set[str]
+    values: dict[str, list[str]]
     raw_body: bytes
     t: float
 
 
-def _query_fields(query: str) -> set[str]:
-    return set(parse_qs(query, keep_blank_values=True))
+def _query_values(data: str) -> dict[str, list[str]]:
+    parsed = parse_qs(data, keep_blank_values=True)
+    return {str(key): [str(item) for item in values] for key, values in parsed.items()}
 
 
-def _multipart_fields(content_type: str, body: bytes) -> set[str]:
+def _multipart_values(content_type: str, body: bytes) -> dict[str, list[str]]:
     from email.parser import BytesParser
     from email.policy import default
 
@@ -39,40 +41,56 @@ def _multipart_fields(content_type: str, body: bytes) -> set[str]:
         + body
     )
     message = BytesParser(policy=default).parsebytes(raw)
-    names: set[str] = set()
+    values: dict[str, list[str]] = {}
     if message.is_multipart():
         for part in message.iter_parts():
             name = part.get_param("name", header="content-disposition")
-            if name:
-                names.add(str(name))
-    return names
+            if not name:
+                continue
+            payload = part.get_payload(decode=True)
+            if payload is None:
+                text = str(part.get_payload() or "")
+            else:
+                text = payload.decode(
+                    part.get_content_charset() or "utf-8", "replace"
+                )
+            values.setdefault(str(name), []).append(text)
+    return values
 
 
-def _extract_fields(content_type: str, body: bytes, query: str) -> set[str]:
-    fields = _query_fields(query)
+def _json_values(data: object) -> dict[str, list[str]]:
+    values: dict[str, list[str]] = {}
+    if not isinstance(data, dict):
+        return values
+    for key, value in data.items():
+        if value is None:
+            values[str(key)] = [""]
+        elif isinstance(value, list):
+            values[str(key)] = [
+                "" if item is None else str(item) for item in value
+            ]
+        else:
+            values[str(key)] = [str(value)]
+    return values
+
+
+def _extract_values(content_type: str, body: bytes, query: str) -> dict[str, list[str]]:
+    values = _query_values(query)
     ctype = content_type.lower()
     if not body:
-        return fields
+        return values
     if "multipart/form-data" in ctype:
-        fields |= _multipart_fields(content_type, body)
-    elif "application/json" in ctype:
-        try:
-            data = json.loads(body.decode("utf-8"))
-        except (UnicodeDecodeError, json.JSONDecodeError):
-            data = None
-        if isinstance(data, dict):
-            fields |= {str(key) for key in data}
+        values.update(_multipart_values(content_type, body))
     elif "application/x-www-form-urlencoded" in ctype:
-        fields |= _query_fields(body.decode("utf-8", "replace"))
+        values.update(_query_values(body.decode("utf-8", "replace")))
     else:
         try:
             data = json.loads(body.decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError):
-            fields |= _query_fields(body.decode("utf-8", "replace"))
+            values.update(_query_values(body.decode("utf-8", "replace")))
         else:
-            if isinstance(data, dict):
-                fields |= {str(key) for key in data}
-    return fields
+            values.update(_json_values(data))
+    return values
 
 
 class FakeServer:
@@ -172,11 +190,13 @@ class FakeServer:
             length = 0
         body = handler.rfile.read(length) if length > 0 else b""
         content_type = handler.headers.get("Content-Type", "")
+        values = _extract_values(content_type, body, query)
         rec = Recorded(
             method=method,
             path=path,
             query=query,
-            fields=_extract_fields(content_type, body, query),
+            fields=set(values),
+            values=values,
             raw_body=body,
             t=time.monotonic(),
         )
