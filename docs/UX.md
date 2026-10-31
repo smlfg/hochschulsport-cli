@@ -36,7 +36,9 @@ ein CLI-Befund, kein Bestandteil der gewünschten Bedienung (siehe
 
 Der Mensch installiert einmalig und legt danach seine Zugangsdaten und
 Personendaten für das aktuelle Portal ab. Die Prompts entsprechen den real
-vorhandenen Texten der CLI.
+vorhandenen Texten der CLI. Neben Login, Passwort, Vorname, Nachname und
+Statusgruppe fragt `login` die E-Mail für Buchungen ab; wenn der Login wie eine
+E-Mail-Adresse aussieht, ist er der Default und Enter übernimmt ihn.
 
 ```ux-session
 $ pipx install git+https://github.com/smlfg/hochschulsport-cli
@@ -53,6 +55,8 @@ $ hsport login
 < Statusgruppe:
 < Auswahl [1]:
 > 1
+< E-Mail für Buchungen [max.beispiel@example.org]:
+>
 <~ Login für .+ gespeichert\.
 ! exit 0
 ```
