@@ -25,6 +25,10 @@ PORTAL_FIELDS = (
     "first_name",
     "last_name",
     "email",
+    "street",
+    "city",
+    "phone",
+    "matrikel",
 )
 
 

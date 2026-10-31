@@ -203,7 +203,7 @@ def test_cli_json_erfolg_mit_bestaetigung(monkeypatch, capsys):
     assert payload["buchungsnummer"] is None
 
 
-def test_cli_json_fehler_nennt_schritt_und_confirmed_false(monkeypatch, capsys):
+def test_cli_json_ohne_email_vor_buchungsschritten(monkeypatch, capsys):
     client = FlowClient([_fixture("step1_formular.html")])
     monkeypatch.setattr("hochschulsport_cli.cli.HttpClient", lambda *a, **k: client)
     monkeypatch.setattr(
@@ -226,9 +226,7 @@ def test_cli_json_fehler_nennt_schritt_und_confirmed_false(monkeypatch, capsys):
     captured = capsys.readouterr()
     data = json.loads(captured.err)
     assert data["error"]["kind"] == "usage"
-    assert data["confirmed"] is False
-    assert data["submitted"] is False
-    assert data["steps"] == ["kurs_waehlen"]
-    assert data["step"] == "daten"
-    assert "email" in data["error"]["message"]
-    assert len(client.post_calls) == 1
+    assert "E-Mail" in data["error"]["message"]
+    assert "hsport login" in data["error"]["message"]
+    assert client.post_calls == []
+    assert client.get_calls == []

@@ -220,12 +220,23 @@ def _login_interactive(portal: Portal) -> dict[str, Any]:
     status_group = _ask_status_group(existing.get("status_group"))
     if not password and not existing.get("login_password"):
         raise UsageError("Passwort darf nicht leer sein.")
+    default_email = login_user if "@" in login_user else existing.get("email")
+    if not isinstance(default_email, str) or not default_email.strip():
+        default_email = None
+    booking_email = prompts.ask(
+        "E-Mail für Buchungen", default=default_email
+    ).strip()
+    if not booking_email:
+        booking_email = (default_email or "").strip()
+    if not booking_email:
+        raise UsageError("E-Mail für Buchungen darf nicht leer sein.")
 
     values: dict[str, Any] = {
         "login_user": login_user,
         "status_group": status_group,
         "first_name": first_name,
         "last_name": last_name,
+        "email": booking_email,
     }
     if password:
         values["login_password"] = password
@@ -238,6 +249,7 @@ def _login_interactive(portal: Portal) -> dict[str, Any]:
         "first_name": first_name,
         "last_name": last_name,
         "status_group": status_group,
+        "email": booking_email,
         "password_store": entry.get("password_store"),
     }
 
@@ -515,14 +527,6 @@ def _format_book_text(
     return "\n".join(lines)
 
 
-def _login_missing_message() -> str:
-    return (
-        "Login fehlt – einmal `hsport login` ausführen (oder für Agenten "
-        "Env HS_LOGIN_USER, HS_LOGIN_PASSWORD, HS_STATUSGRUPPE, "
-        "HSPORT_FIRSTNAME, HSPORT_LASTNAME setzen)."
-    )
-
-
 _DEFAULT_LOAD_COURSES_FOR_SPORT = load_courses_for_sport
 
 
@@ -543,13 +547,13 @@ def _ensure_book_credentials(
 
     try:
         return load_booking_credentials(portal.id)
-    except UsageError:
+    except UsageError as exc:
         if interactive and prompts.confirm(
             "Jetzt `hsport login` starten?", default=True
         ):
             _login_interactive(portal)
             return load_booking_credentials(portal.id)
-        raise UsageError(_login_missing_message())
+        raise exc
 
 
 def _stdout_is_tty() -> bool:

@@ -90,6 +90,80 @@ def test_login_speichert_datei_mit_0600(xdg_config, monkeypatch, capsys):
     assert TEST_SECRET not in capsys.readouterr().out
 
 
+def test_login_fragt_buchungs_email_ab_und_speichert(
+    xdg_config, monkeypatch, capsys
+):
+    monkeypatch.setattr(prompts, "is_tty", lambda: True)
+    answers = {
+        "E-Mail/Login": "max@example.org",
+        "Vorname": "Max",
+        "Nachname": "Mustermann",
+        "Auswahl": "1",
+        "E-Mail für Buchungen": "buchung@example.org",
+    }
+    asked: list[str] = []
+
+    def fake_ask(question: str, *, default: str | None = None) -> str:
+        asked.append(question)
+        for needle, value in answers.items():
+            if needle in question:
+                return value
+        return default or ""
+
+    monkeypatch.setattr(prompts, "ask", fake_ask)
+    monkeypatch.setattr(prompts, "ask_secret", lambda question: TEST_SECRET)
+
+    assert main(["login", "--json"]) == 0
+    assert any("E-Mail für Buchungen" in question for question in asked)
+    entry = config_mod.load_portal("stuttgart")
+    assert entry["login_user"] == "max@example.org"
+    assert entry["email"] == "buchung@example.org"
+    capsys.readouterr()
+    assert main(["whoami", "--json"]) == 0
+    data = json.loads(capsys.readouterr().out)
+    assert data["email"] == "buchung@example.org"
+
+
+def test_book_ohne_email_keine_bestaetigung_und_kein_post(
+    xdg_config, monkeypatch, capsys
+):
+    config_mod.save_portal(
+        "stuttgart",
+        {
+            "login_user": "max",
+            "login_password": TEST_SECRET,
+            "status_group": "Studierende",
+            "first_name": "Max",
+            "last_name": "Mustermann",
+        },
+    )
+    courses = [_course("50100")]
+    monkeypatch.setattr(
+        "hochschulsport_cli.cli.load_courses_for_sport",
+        lambda portal, client, name: courses,
+    )
+    client = _fixture_client(monkeypatch)
+    monkeypatch.setattr(prompts, "is_tty", lambda: True)
+    asked: list[str] = []
+
+    def fake_confirm(question: str, *, default: bool = False) -> bool:
+        asked.append(question)
+        return False
+
+    monkeypatch.setattr(prompts, "confirm", fake_confirm)
+    monkeypatch.setattr(
+        prompts, "ask", lambda question, *, default=None: default or ""
+    )
+
+    assert main(["book", "volleyball"]) == 1
+    captured = capsys.readouterr()
+    assert client.post_calls == []
+    assert "Für die Buchung fehlt" in captured.err
+    assert "E-Mail" in captured.err
+    assert "hsport login" in captured.err
+    assert not any("Verbindlich buchen" in question for question in asked)
+
+
 def test_whoami_zeigt_passwort_nur_als_status(xdg_config, monkeypatch, capsys):
     _login(monkeypatch)
     capsys.readouterr()

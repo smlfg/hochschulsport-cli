@@ -26,6 +26,7 @@ ENV_FIELDS: dict[str, tuple[str, ...]] = {
     "street": ("HSPORT_STREET", "HS_BOOKING_STREET"),
     "city": ("HSPORT_CITY", "HS_BOOKING_CITY"),
     "phone": ("HSPORT_PHONE", "HS_BOOKING_PHONE"),
+    "matrikel": ("HSPORT_MATRIKEL", "HS_BOOKING_MATRIKEL"),
     "session_file": ("HS_SESSION_FILE",),
 }
 _ENV_LOGIN_USER = ENV_FIELDS["login_user"]
@@ -56,6 +57,7 @@ class BookingCredentials:
     street: str | None = None
     city: str | None = None
     phone: str | None = None
+    matrikel: str | None = None
     session_file: str | None = None
 
 
@@ -86,7 +88,18 @@ def required_env_field_names() -> list[str]:
         "HS_STATUSGRUPPE",
         "HSPORT_FIRSTNAME",
         "HSPORT_LASTNAME",
+        "HS_BOOKING_EMAIL",
     ]
+
+
+REQUIRED_CREDENTIAL_LABELS: tuple[tuple[str, str], ...] = (
+    ("login_user", "E-Mail/Login"),
+    ("login_password", "Passwort"),
+    ("status_group", "Statusgruppe"),
+    ("first_name", "Vorname"),
+    ("last_name", "Nachname"),
+    ("email", "E-Mail"),
+)
 
 
 def load_booking_credentials(portal_id: str | None = None) -> BookingCredentials:
@@ -123,31 +136,29 @@ def load_booking_credentials(portal_id: str | None = None) -> BookingCredentials
                 return raw.strip()
         return None
 
-    login_user = value("login_user")
-    login_password = value("login_password")
-    status_group = value("status_group")
-    first_name = value("first_name")
-    last_name = value("last_name")
-    if not all((login_user, login_password, status_group, first_name, last_name)):
-        raise UsageError(
-            "Login fehlt – einmal `hsport login` ausführen (oder für Agenten "
-            "Env HS_LOGIN_USER, HS_LOGIN_PASSWORD, HS_STATUSGRUPPE, "
-            "HSPORT_FIRSTNAME, HSPORT_LASTNAME setzen)."
-        )
-    email = value("email")
-    if not email and "@" in login_user:
+    values = {field: value(field) for field, _label in REQUIRED_CREDENTIAL_LABELS}
+    login_user = values["login_user"]
+    if not values["email"] and login_user and "@" in login_user:
         # Der Login ist bei Buchsys häufig die E-Mail-Adresse.
-        email = login_user
+        values["email"] = login_user
+    missing = [
+        label
+        for field, label in REQUIRED_CREDENTIAL_LABELS
+        if not values.get(field)
+    ]
+    if missing:
+        raise UsageError(_missing_message(missing))
     return BookingCredentials(
-        login_user=login_user,
-        login_password=login_password,
-        status_group=status_group,
-        first_name=first_name,
-        last_name=last_name,
-        email=email,
+        login_user=str(values["login_user"]),
+        login_password=str(values["login_password"]),
+        status_group=str(values["status_group"]),
+        first_name=str(values["first_name"]),
+        last_name=str(values["last_name"]),
+        email=str(values["email"]),
         street=optional(ENV_FIELDS["street"], "street", "strasse"),
         city=optional(ENV_FIELDS["city"], "city", "ort"),
         phone=optional(ENV_FIELDS["phone"], "phone", "telefon"),
+        matrikel=optional(ENV_FIELDS["matrikel"], "matrikel", "matrikelnummer"),
         session_file=_env_first(_ENV_SESSION_FILE),
     )
 
@@ -338,6 +349,9 @@ PERSON_FIELD_MAP: dict[str, str] = {
     "city": "city",
     "telefon": "phone",
     "phone": "phone",
+    "matrikel": "matrikel",
+    "matrikelnummer": "matrikel",
+    "matrikelnr": "matrikel",
 }
 
 LOGIN_MARKERS = ("login", "anmelden", "/cms/")
